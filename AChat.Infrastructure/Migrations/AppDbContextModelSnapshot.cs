@@ -220,10 +220,10 @@ namespace AChat.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("PageId")
+                    b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PageName")
+                    b.Property<string>("PageId")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RefreshToken")
@@ -369,16 +369,16 @@ namespace AChat.Infrastructure.Migrations
                         {
                             Id = 1,
                             AccessFailedCount = 0,
-                            ConcurrencyStamp = "cd8bdc29-6164-4e12-9c16-1ab1c6d319db",
+                            ConcurrencyStamp = "6058c550-2571-45e7-aee6-fcdd1dcc2f5b",
                             Email = "example@gmail.com",
                             EmailConfirmed = true,
                             FullName = "Admin",
                             LockoutEnabled = false,
                             NormalizedEmail = "EXAMPLE@GMAIL.COM",
                             NormalizedUserName = "ADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAEBYW+DaATb0gmgKF/5AOyrYSbdAAdVFwkoknYT9a4Vq8E9TRuCKKrRrjzC88v8zlcg==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEI1Hp3kk23PyJJ+estKMUNJWf91YnOokYlqHsi3HezMaaZCZeF4Mqmgw9zl/cBJMIw==",
                             PhoneNumberConfirmed = false,
-                            SecurityStamp = "8ccdbd07-9cf2-464f-89a9-4454f5d0dcb0",
+                            SecurityStamp = "772fdc72-7d05-468f-9210-4cacc1aedcdd",
                             TwoFactorEnabled = false,
                             UserName = "admin"
                         });

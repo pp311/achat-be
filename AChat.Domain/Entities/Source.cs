@@ -9,6 +9,6 @@ public class Source : AuditableEntity
     public string? AccessToken { get; set; } 
     public string? RefreshToken { get; set; } 
     public string? PageId { get; set; }
-    public string? PageName { get; set; }
+    public string? Name { get; set; }
     public int UserId { get; set; }
 }

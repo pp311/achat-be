@@ -1,4 +1,5 @@
 using AChat.Application.Common.Interfaces;
+using AChat.Application.ViewModels.Source.Responses;
 using AChat.Domain;
 using AChat.Domain.Entities;
 using AChat.Domain.Exceptions;
@@ -21,11 +22,16 @@ public class SourceService(
         
         var userPages = await facebookClient.GetPageLongLiveTokenAsync(accessToken, facebookInfo.Id)
             ?? throw new Exception("Failed to get user pages");
+        
+        var existingSources = await sourceRepository.GetListAsync(_ => _.UserId == CurrentUser.Id);
 
         try
         {
             foreach (var page in userPages.Data)
             {
+                if (existingSources.Any(_ => _.PageId == page.Id))
+                    continue;
+                
                 await facebookClient.SubscribeAppAsync(page.AccessToken, page.Id);
                 
                 var source = new Source
@@ -33,7 +39,7 @@ public class SourceService(
                     Type = SourceType.Facebook,
                     AccessToken = page.AccessToken,
                     PageId = page.Id,
-                    PageName = page.Name,
+                    Name = page.Name,
                     UserId = CurrentUser.Id
                 };
                
@@ -47,4 +53,21 @@ public class SourceService(
         } 
         await UnitOfWork.SaveChangesAsync();
     } 
+    
+    public async Task DisconnectFacebookAsync(string pageId)
+    {
+        var source = await sourceRepository.GetAsync(_ => _.PageId == pageId && _.UserId == CurrentUser.Id)
+            ?? throw new NotFoundException(nameof(Source), pageId);
+        
+        await facebookClient.UnsubscribeAppsAsync(source.AccessToken, new List<string> { pageId });
+        
+        sourceRepository.Delete(source);
+        await UnitOfWork.SaveChangesAsync();
+    }
+    
+    public async Task<List<SourceResponse>> GetSourcesAsync()
+    {
+        var sources = await sourceRepository.GetListAsync(_ => _.UserId == CurrentUser.Id);
+        return Mapper.Map<List<SourceResponse>>(sources);
+    }
 }
