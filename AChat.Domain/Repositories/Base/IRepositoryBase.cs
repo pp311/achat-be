@@ -15,5 +15,6 @@ public interface IRepositoryBase<TEntity> where TEntity : EntityBase
     void Delete(TEntity entity); 
     void DeleteRange(IEnumerable<TEntity> entities);
     Task<bool> AnyAsync(int id, CancellationToken cancellationToken = default);
+    Task<bool> AnyAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
     Task<bool> IsAllExistAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
 }

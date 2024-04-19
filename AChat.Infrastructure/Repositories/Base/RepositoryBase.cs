@@ -50,6 +50,9 @@ public class RepositoryBase<TEntity> : IRepositoryBase<TEntity> where TEntity : 
     public Task<bool> AnyAsync(int id, CancellationToken cancellationToken = default)
         => DbSet.AnyAsync(e => e.Id == id, cancellationToken);
 
+    public Task<bool> AnyAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+        => DbSet.AnyAsync(predicate, cancellationToken);
+
     public Task<bool> IsAllExistAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
         => DbSet.AllAsync(e => ids.Contains(e.Id), cancellationToken);
 }
