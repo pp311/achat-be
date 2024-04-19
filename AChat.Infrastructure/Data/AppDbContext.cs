@@ -52,6 +52,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
                 case EntityState.Added:
                     entry.Entity.CreatedBy = userId;
                     entry.Entity.CreatedOn = DateTime.UtcNow;
+                    entry.Entity.UpdatedBy = userId;
+                    entry.Entity.UpdatedOn = DateTime.UtcNow;
                     break;
 
                 case EntityState.Modified:
