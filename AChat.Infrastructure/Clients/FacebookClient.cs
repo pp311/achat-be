@@ -52,7 +52,7 @@ public class FacebookClient(IOptions<FacebookSettings> settings) : IFacebookClie
         
         var request = new RestRequest()
             .AddParameter("access_token", accessToken)
-            .AddParameter("subscribed_fields", "messages");
+            .AddParameter("subscribed_fields", "messages,message_echoes");
         
         var response = await client.PostAsync(request);
         if (!response.IsSuccessful)

@@ -36,6 +36,9 @@ public class FacebookMessage
 	public string? Mid { get; set; }
 	[JsonProperty("text")]
 	public string? Text { get; set; }
+	
+	[JsonPropertyName("is_echo")]
+	public bool IsEcho { get; set; }
 
 	public List<FacebookMessageAttachment> Attachments { get; set; } = new();
 }

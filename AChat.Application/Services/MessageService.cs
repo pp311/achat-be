@@ -19,39 +19,54 @@ public class MessageService(
 {
     public async Task ReceiveFacebookMessageAsync(FacebookMessageModel message)
     {
-        var source = await sourceRepository.GetAsync(_ => _.PageId == message.Recipient!.Id && _.UserId == CurrentUser.Id)
-            ?? throw new NotFoundException(nameof(Source), message.Recipient!.Id);
+        if (message.Message!.IsEcho)
+            (message.Recipient!.Id, message.Sender!.Id) = (message.Sender.Id, message.Recipient.Id);
+        
+        var sources = await sourceRepository.GetListAsync(_ => _.PageId == message.Recipient!.Id);
+        
+        foreach (var source in sources)
+        {
+            var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.FacebookUserId == message.Sender!.Id);
+            
+            if (contact == null)
+            {
+                try
+                {
+                    var profileInfo = await facebookClient.GetUserProfileInfoAsync(source.AccessToken, message.Sender!.Id);
+                    if (profileInfo == null)
+                        continue;
+                    
+                    contact = new Contact
+                    {
+                        SourceId = source.Id,
+                        FacebookUserId = message.Sender!.Id,
+                        Name = profileInfo.Name,
+                        UserId = source.UserId
+                    };
 
-        var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.FacebookUserId == message.Sender!.Id);
-        
-        if (contact == null)
-        {
-            var profileInfo = await facebookClient.GetUserProfileInfoAsync(source.AccessToken, message.Sender!.Id)
-                ?? throw new Exception("Failed to get user profile info");
-            
-            contact = new Contact
+                    contactRepository.Add(contact);
+                }
+                catch
+                {
+                    continue;
+                }
+            }
+
+            var newMessage = new Message
             {
-                SourceId = source.Id,
-                FacebookUserId = message.Sender!.Id,
-                Name = profileInfo.Name
+                MId = message.Message!.Mid,
+                ContactId = contact.Id,
+                Attachments = message.Message!.Attachments.Select(_ => new MessageAttachment
+                {
+                    Url = _.Payload!.Url!,
+                    FileName = string.Empty,
+                    Type = _.Type
+                }).ToList(),
+                Content = message.Message!.Text ?? string.Empty,
             };
-            
-            contactRepository.Add(contact);
+
+            contact.Messages.Add(newMessage);
         }
-        
-        var newMessage = new Message
-        {
-            ContactId = contact.Id,
-            Attachments = message.Message!.Attachments.Select(_ => new MessageAttachment
-            {
-                Url = _.Payload!.Url!,
-                FileName = string.Empty,
-                Type = _.Type
-            }).ToList(),
-            Content = message.Message!.Text ?? string.Empty,
-        };
-        
-        contact.Messages.Add(newMessage);
 
         await UnitOfWork.SaveChangesAsync();
     } 

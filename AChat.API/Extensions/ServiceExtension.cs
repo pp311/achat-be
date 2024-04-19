@@ -130,6 +130,8 @@ public static class ServiceExtension
 				options.TokenValidationParameters = new TokenValidationParameters
 				{
 					ValidateIssuerSigningKey = true,
+					ValidateAudience = false,
+					ValidateIssuer = false,
 					ValidateLifetime = true,
 					IssuerSigningKey =
 						new SymmetricSecurityKey(
