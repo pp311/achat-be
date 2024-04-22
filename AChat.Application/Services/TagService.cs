@@ -1,9 +1,13 @@
+using AChat.Application.Common.Extensions;
 using AChat.Application.Common.Interfaces;
+using AChat.Application.Common.Models;
+using AChat.Application.ViewModels.Tag.Requests;
 using AChat.Application.ViewModels.Tag.Responses;
 using AChat.Domain.Entities;
 using AChat.Domain.Exceptions;
 using AChat.Domain.Repositories.Base;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace AChat.Application.Services;
@@ -15,7 +19,7 @@ public class TagService(
     IRepositoryBase<Tag> tagRepository,
     IRepositoryBase<Contact> contactRepository) : BaseService(unitOfWork, mapper, currentUser)
 {
-    public async Task AddTagAsync(string name)
+    public async Task AddTagAsync(string name, string? color)
     {
         if (await tagRepository.AnyAsync(_ => _.Name == name && _.UserId == CurrentUser.Id))
             throw new AlreadyExistsException(nameof(Tag), name);
@@ -23,7 +27,8 @@ public class TagService(
         var tag = new Tag
         {
             Name = name,
-            UserId = CurrentUser.Id
+            UserId = CurrentUser.Id,
+            Color = color ?? GetRandomColor()
         };
 
         tagRepository.Add(tag);
@@ -39,10 +44,13 @@ public class TagService(
         await UnitOfWork.SaveChangesAsync();
     }
     
-    public async Task<List<TagResponse>> GetTagsAsync()
+    public async Task<PaginatedList<TagResponse>> GetTagsAsync(GetTagsRequest request)
     {
-        var tags = await tagRepository.GetListAsync(_ => _.UserId == CurrentUser.Id);
-        return Mapper.Map<List<TagResponse>>(tags);
+        return await tagRepository
+            .GetQuery(_ => _.UserId == CurrentUser.Id 
+                           && (string.IsNullOrEmpty(request.Search) || _.Name.Contains(request.Search)))
+            .OrderBy(GetOrderByField(request.SortBy), request.IsDescending)
+            .ToPaginatedListAsync<TagResponse>(Mapper.ConfigurationProvider, request.PageNumber, request.PageSize);
     }
     
     public async Task<List<TagResponse>> GetTagsOfContactAsync(int contactId)
@@ -81,4 +89,25 @@ public class TagService(
         tag.Contacts.Add(contact);
         await UnitOfWork.SaveChangesAsync();
     }
+
+    #region Helper
+    private static string GetRandomColor()
+    {
+        var random = new Random();
+        return $"#{random.Next(0x1000000):X6}";
+    }
+    
+    private static IOrderByField GetOrderByField(TagSortByOption? option)
+    {
+        return option switch
+        {
+            TagSortByOption.Id
+                => new OrderByField<Tag, int>(x => x.Id),
+            TagSortByOption.Name
+                => new OrderByField<Tag, string>(x => x.Name),
+            _ => throw new ArgumentOutOfRangeException(nameof(option), option, null)
+        };
+    }
+
+    #endregion
 }

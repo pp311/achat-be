@@ -71,6 +71,7 @@ public static class ServiceExtension
 			.WithScopedLifetime());
 		
 		services.AddScoped<IFacebookClient, FacebookClient>();
+		services.AddScoped<IImageUploader, ImageUploader>();
 
 		return services;
 	}

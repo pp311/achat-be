@@ -1,4 +1,5 @@
 using AChat.Application.Services;
+using AChat.Application.ViewModels.Tag.Requests;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AChat.Controllers;
@@ -15,16 +16,16 @@ public class TagController : ControllerBase
     }
     
     [HttpGet]
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get([FromQuery] GetTagsRequest request)
     {
-        var tags = await _tagService.GetTagsAsync();
+        var tags = await _tagService.GetTagsAsync(request);
         return Ok(tags);
     }
     
     [HttpPost]
-    public async Task<IActionResult> Post([FromQuery] string name)
+    public async Task<IActionResult> Post([FromQuery] string name, [FromQuery] string? color)
     {
-        await _tagService.AddTagAsync(name);
+        await _tagService.AddTagAsync(name, color);
         return Ok();
     }
     

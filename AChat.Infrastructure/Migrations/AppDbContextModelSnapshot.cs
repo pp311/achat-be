@@ -121,6 +121,9 @@ namespace AChat.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("MId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Subject")
                         .HasColumnType("nvarchar(max)");
 
@@ -255,6 +258,10 @@ namespace AChat.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
@@ -369,16 +376,16 @@ namespace AChat.Infrastructure.Migrations
                         {
                             Id = 1,
                             AccessFailedCount = 0,
-                            ConcurrencyStamp = "6058c550-2571-45e7-aee6-fcdd1dcc2f5b",
+                            ConcurrencyStamp = "d8716895-0b20-4939-9bff-e938c809a34f",
                             Email = "example@gmail.com",
                             EmailConfirmed = true,
                             FullName = "Admin",
                             LockoutEnabled = false,
                             NormalizedEmail = "EXAMPLE@GMAIL.COM",
                             NormalizedUserName = "ADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAEI1Hp3kk23PyJJ+estKMUNJWf91YnOokYlqHsi3HezMaaZCZeF4Mqmgw9zl/cBJMIw==",
+                            PasswordHash = "AQAAAAIAAYagAAAAENUo02WSEJrX+nTha5EAprho6wjBFxvIZ2j1WvncQuZAjfOiFcg6C1G4GLLDnONlbw==",
                             PhoneNumberConfirmed = false,
-                            SecurityStamp = "772fdc72-7d05-468f-9210-4cacc1aedcdd",
+                            SecurityStamp = "693fd8d2-c0fd-4e48-9c20-0c08402481df",
                             TwoFactorEnabled = false,
                             UserName = "admin"
                         });
