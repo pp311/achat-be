@@ -19,10 +19,12 @@ public class Contact : AuditableEntity
     public string? FacebookUserId { get; set; }
 
     public string? CustomInfo { get; set; }
+    
+    public int RefId { get;set; }
 
-    public int? SourceId { get; set; }
+    public int SourceId { get; set; }
 
-    public Source? Source { get; set; }
+    public Source Source { get; set; }
     public ICollection<Note> Notes { get; set; } = new HashSet<Note>();
     public ICollection<Tag> Tags { get; set; } = new HashSet<Tag>();
     public ICollection<Message> Messages { get; set; } = new HashSet<Message>();

@@ -2,7 +2,7 @@ using AChat.Domain.Entities.Base;
 
 namespace AChat.Domain.Entities;
 
-public class Source : AuditableEntity
+public class Source : AuditableEntity, ISoftDelete
 {
     public SourceType Type { get; set; }  
     
@@ -11,4 +11,5 @@ public class Source : AuditableEntity
     public string? PageId { get; set; }
     public string? Name { get; set; }
     public int UserId { get; set; }
+    public bool IsDeleted { get; set; }
 }

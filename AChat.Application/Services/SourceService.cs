@@ -29,21 +29,32 @@ public class SourceService(
         {
             foreach (var page in userPages.Data)
             {
-                if (existingSources.Any(_ => _.PageId == page.Id))
-                    continue;
-                
-                await facebookClient.SubscribeAppAsync(page.AccessToken, page.Id);
-                
-                var source = new Source
+                var existingSource = existingSources.Find(_ => _.PageId == page.Id);
+                if (existingSource != null)
                 {
-                    Type = SourceType.Facebook,
-                    AccessToken = page.AccessToken,
-                    PageId = page.Id,
-                    Name = page.Name,
-                    UserId = CurrentUser.Id
-                };
-               
-                sourceRepository.Add(source);
+                    if (!existingSource.IsDeleted)
+                        continue;
+                    
+                    await facebookClient.SubscribeAppAsync(page.AccessToken, page.Id);
+                    existingSource.AccessToken = page.AccessToken;
+                    existingSource.IsDeleted = false;
+                    sourceRepository.Update(existingSource);
+                }
+                else
+                {
+                    await facebookClient.SubscribeAppAsync(page.AccessToken, page.Id);
+                    
+                    var source = new Source
+                    {
+                        Type = SourceType.Facebook,
+                        AccessToken = page.AccessToken,
+                        PageId = page.Id,
+                        Name = page.Name,
+                        UserId = CurrentUser.Id
+                    };
+                   
+                    sourceRepository.Add(source);
+                }
             }
         }
         catch

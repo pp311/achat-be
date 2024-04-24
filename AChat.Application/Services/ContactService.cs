@@ -18,13 +18,24 @@ public class ContactService(
 {
     public async Task<PaginatedList<ContactResponse>> GetContactsAsync(GetContactsRequest request, CancellationToken ct)
     {
-        var contacts = await contactRepository.Search(request.Search)
-            .Where(_ => _.UserId == currentUser.Id)
+        return await contactRepository.Search(request.Search)
+            .Where(_ => _.UserId == CurrentUser.Id && _.IsHidden == request.IsHidden)
+            .WhereIf(request.TagIds.Any(), _ => _.Tags.Any(tag => request.TagIds.Contains(tag.Id)))
+            .WhereIf(request.Type.HasValue, _ => _.Source.Type == request.Type)
             .OrderBy(GetOrderByField(request.SortBy), request.IsDescending)
             .ProjectTo<ContactResponse>(Mapper.ConfigurationProvider)
             .ToPaginatedListAsync(request.PageNumber, request.PageSize, ct);
-
-        return contacts;
+    }
+    
+    public async Task ChangeContactsVisibilityAsync(List<int> id, bool visibility, CancellationToken ct)
+    {
+        var contacts = await contactRepository.GetListAsync(_ => id.Contains(_.Id) && _.UserId == CurrentUser.Id, ct);
+        foreach (var contact in contacts)
+        {
+            contact.IsHidden = !visibility;
+            contactRepository.Update(contact);
+        }
+        await UnitOfWork.SaveChangesAsync(ct);
     }
     
     private static IOrderByField GetOrderByField(ContactSortByOption? option)

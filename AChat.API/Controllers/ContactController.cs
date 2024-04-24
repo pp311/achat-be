@@ -23,4 +23,18 @@ public class ContactController : ControllerBase
         var result = await _contactService.GetContactsAsync(request, ct);
         return Ok(result);
     } 
+    
+    [HttpPost("hide")]
+    public async Task<IActionResult> HideContacts([FromBody] HideContactsRequest request, CancellationToken ct)
+    {
+        await _contactService.ChangeContactsVisibilityAsync(request.ContactIds, false, ct);
+        return NoContent();
+    }
+    
+    [HttpPost("un-hide")]
+    public async Task<IActionResult> UnHideContacts([FromBody] HideContactsRequest request, CancellationToken ct)
+    {
+        await _contactService.ChangeContactsVisibilityAsync(request.ContactIds, true, ct);
+        return NoContent();
+    }
 }
