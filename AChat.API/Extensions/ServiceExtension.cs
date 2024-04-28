@@ -18,6 +18,7 @@ using AChat.Infrastructure.Data;
 using AChat.Infrastructure.Email;
 using AChat.Infrastructure.Repositories.Base;
 using AChat.Services;
+using Minio;
 
 namespace AChat.Extensions;
 
@@ -115,6 +116,7 @@ public static class ServiceExtension
 
 		builder.Services.Configure<TokenSettings>(builder.Configuration.GetSection("TokenSettings"));
 		builder.Services.Configure<FacebookSettings>(builder.Configuration.GetSection("FacebookSettings"));
+		builder.Services.Configure<MinioSettings>(builder.Configuration.GetSection("MinioSettings"));
 	}
 
 	public static IServiceCollection AddAuthentication(this IServiceCollection services,
@@ -205,4 +207,14 @@ public static class ServiceExtension
     
         return requestBody;
     }
+	
+	public static IServiceCollection AddMinio(this IServiceCollection services, IConfiguration configuration)
+	{
+		// services.AddScoped<IImageUploader, MinioUploader>();
+		services.AddMinio(cfg => cfg
+			.WithEndpoint(configuration["MinioSettings:Endpoint"])
+			.WithCredentials(configuration["MinioSettings:AccessKey"], configuration["MinioSettings:SecretKey"]));
+		
+		return services;
+	}
 }

@@ -25,6 +25,7 @@ builder.Services
     .AddCurrentUser()
     .AddQuartz()
     .AddMemoryCache()
+    .AddMinio(builder.Configuration)
     .AddAutoMapper(typeof(BaseService).Assembly)
     .AddProblemDetails()
     .AddExceptionHandler<GlobalExceptionHandler>()
