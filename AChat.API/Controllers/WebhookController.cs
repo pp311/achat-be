@@ -3,7 +3,9 @@ using AChat.Application.Common.Configurations;
 using AChat.Application.Common.Interfaces;
 using AChat.Application.Services;
 using AChat.Application.ViewModels.Facebook;
+using AChat.SignalRHub;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -16,11 +18,16 @@ public class WebhookController : ControllerBase
 	private readonly ILogger<WebhookController> _logger;
 	private readonly FacebookSettings _facebookSettings;
 	private readonly MessageService _messageService;
+	private readonly IHubContext<SignalRHub.SignalRHub, ISignalRClient> _hubContext;
 
-	public WebhookController(ILogger<WebhookController> logger, IOptions<FacebookSettings> facebookSettings, MessageService messageService)
+	public WebhookController(ILogger<WebhookController> logger, 
+		IOptions<FacebookSettings> facebookSettings, 
+		MessageService messageService, 
+		IHubContext<SignalRHub.SignalRHub, ISignalRClient> hubContext)
 	{
 		_logger = logger;
 		_messageService = messageService;
+		_hubContext = hubContext;
 		_facebookSettings = facebookSettings.Value;
 	}
 
@@ -38,7 +45,11 @@ public class WebhookController : ControllerBase
 		// _logger.LogInformation($"Received message from {request.Entry.First().Messaging.First().Sender.Id}: {request.Entry.First().Messaging.First().Message.Text}");
 		foreach (var messaging in request.Entry.SelectMany(entry => entry.Messaging))
 		{
-			await _messageService.ReceiveFacebookMessageAsync(messaging);
+			var responses = await _messageService.ReceiveFacebookMessageAsync(messaging);
+			foreach (var response in responses)
+			{
+				await _hubContext.Clients.User(response.UserId.ToString()).ReceiveMessage(JsonSerializer.Serialize(response));
+			}
 		}
 		
 		return Ok();

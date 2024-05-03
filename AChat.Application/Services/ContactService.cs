@@ -26,7 +26,7 @@ public class ContactService(
             .ProjectTo<ContactResponse>(Mapper.ConfigurationProvider)
             .ToPaginatedListAsync(request.PageNumber, request.PageSize, ct);
     }
-    
+
     public async Task ChangeContactsVisibilityAsync(List<int> id, bool visibility, CancellationToken ct)
     {
         var contacts = await contactRepository.GetListAsync(_ => id.Contains(_.Id) && _.UserId == CurrentUser.Id, ct);
@@ -37,7 +37,7 @@ public class ContactService(
         }
         await UnitOfWork.SaveChangesAsync(ct);
     }
-    
+
     private static IOrderByField GetOrderByField(ContactSortByOption? option)
     {
         return option switch

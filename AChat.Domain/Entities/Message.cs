@@ -9,6 +9,8 @@ public class Message : AuditableEntity
     public string? Subject { get; set; }
     public string? MId { get; set; }
     
+    public bool IsEcho { get; set; }
+    
     public Contact Contact { get; set; } = null!;
     
     public ICollection<MessageAttachment> Attachments { get; set; } = new HashSet<MessageAttachment>();
