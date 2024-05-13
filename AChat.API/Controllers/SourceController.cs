@@ -34,4 +34,16 @@ public class SourceController : ControllerBase
         var sources = await _sourceService.GetSourcesAsync();
         return Ok(sources);
     }
+    
+    [HttpPost("connect-google")]
+    public async Task ConnectGoogle([FromQuery] string code)
+    {
+        await _sourceService.ConnectGmailAsync(code);
+    }
+    
+    [HttpPost("disconnect-google")]
+    public async Task DisconnectGoogle([FromQuery] int sourceId)
+    {
+        await _sourceService.DisconnectGmailAsync(sourceId);
+    }
 }

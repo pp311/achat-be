@@ -4,12 +4,13 @@ using AChat.Application.Common.Configurations;
 using AChat.Application.Common.Interfaces;
 using AChat.Application.ViewModels.Facebook;
 using AChat.Domain.Exceptions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RestSharp;
 
 namespace AChat.Infrastructure.Clients;
 
-public class FacebookClient(IOptions<FacebookSettings> settings) : IFacebookClient
+public class FacebookClient(IOptions<FacebookSettings> settings, ILogger<FacebookClient> logger) : IFacebookClient
 {
     private readonly FacebookSettings _settings = settings.Value;
 
@@ -82,26 +83,110 @@ public class FacebookClient(IOptions<FacebookSettings> settings) : IFacebookClie
         return await client.GetAsync<FacebookInfoModel>(request);
     }
     
-    public async Task SendMessageAsync(string? accessToken, string receiverId, string pageId, string message)
+    public async Task SendMessageAsync(string? accessToken, string receiverId, string pageId, string? message, string? attachmentUrl, string? fileType)
     {
         var client = new RestClient();
-        var body = new FacebookSendMessageModel
+        if (!string.IsNullOrEmpty(message))
         {
-            Message = new FacebookSendMessage
+            var body = new FacebookSendMessageModel
             {
-                Text = message
-            },
-            Recipient = new FacebookRecipient
+                Message = new FacebookSendMessage
+                {
+                    Text = message
+                },
+                Recipient = new FacebookRecipient
+                {
+                    Id = receiverId
+                },
+            };
+            
+            var request = new RestRequest(_settings.BaseUrl + $"/{pageId}/messages?access_token={accessToken}", Method.Post)
+                .AddJsonBody(body);
+            
+            var response = await client.ExecuteAsync(request);
+
+            if (!response.IsSuccessful)
             {
-                Id = receiverId
+                logger.LogError(response.Content);
+                if (response.Content!.Contains("This message is sent outside of allowed window."))
+                    throw new AppException("You are not allowed to respond on messages after 24 hours since the latest user's message!");
+                throw new AppException("Failed to send message");
             }
-        };
-        
-        var request = new RestRequest(_settings.BaseUrl + $"/{pageId}/messages?access_token={accessToken}", Method.Post)
-            .AddJsonBody(body);
-        
-        var response = await client.ExecuteAsync(request);
-        if (!response.IsSuccessful)
-            throw new AppException("Failed to send message");
+        }
+
+
+        if (!string.IsNullOrEmpty(attachmentUrl))
+        {
+            var body = new FacebookSendMessageModel
+            {
+                Message = new FacebookSendMessage
+                {
+                    Attachment = new FacebookSendMessageAttachment
+                    {
+                        Type = fileType,
+                        Payload = new FacebookSendMessageAttachmentPayload
+                        {
+                            Url = attachmentUrl
+                        }
+                    }
+                }
+            };
+
+            var request = new RestRequest(_settings.BaseUrl + $"/{pageId}/message_attachments?access_token={accessToken}", Method.Post).AddJsonBody(body);
+            
+            var response = await client.ExecuteAsync<UploadAttachmentResponse>(request);
+
+            if (!response.IsSuccessful)
+            {
+                logger.LogError(response.Content);
+                if (response.Content!.Contains("This message is sent outside of allowed window."))
+                    throw new AppException("You are not allowed to respond on messages after 24 hours since the latest user's message!");
+                
+                if (response.Content!.Contains("Upload attachment failure") || response.Content!.Contains("Upload failed"))
+                    throw new AppException("Cannot upload attachment");
+                
+                throw new AppException("Failed to send message");
+            }
+            
+            var attachmentId = response.Data?.AttachmentId;
+            if (string.IsNullOrEmpty(attachmentId))
+                throw new AppException("Failed to send message");
+            
+            body = new FacebookSendMessageModel
+            {
+                Recipient = new FacebookRecipient
+                {
+                    Id = receiverId
+                },
+                Message = new FacebookSendMessage
+                {
+                    Attachment = new FacebookSendMessageAttachment
+                    {
+                        Type = fileType,
+                        Payload = new FacebookSendMessageAttachmentPayload
+                        {
+                            AttachmentId = attachmentId
+                        }
+                    }
+                }
+            };
+                
+            request = new RestRequest(_settings.BaseUrl + $"/{pageId}/messages?access_token={accessToken}", Method.Post)
+                .AddJsonBody(body);
+            
+            var response2 = await client.ExecuteAsync(request);
+            
+            if (!response2.IsSuccessful)
+            {
+                logger.LogError(response2.Content);
+                if (response2.Content!.Contains("This message is sent outside of allowed window."))
+                    throw new AppException("You are not allowed to respond on messages after 24 hours since the latest user's message!");
+                
+                if (response2.Content!.Contains("Upload attachment failure"))
+                    throw new AppException("Cannot upload attachment");
+                
+                throw new AppException("Failed to send message");
+            }
+        }
     }
 }

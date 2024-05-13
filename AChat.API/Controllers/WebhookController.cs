@@ -1,5 +1,6 @@
 using System.Text;
 using AChat.Application.Common.Configurations;
+using AChat.Application.Common.Dtos;
 using AChat.Application.Common.Interfaces;
 using AChat.Application.Services;
 using AChat.Application.ViewModels.Facebook;
@@ -52,6 +53,14 @@ public class WebhookController : ControllerBase
 			}
 		}
 		
+		return Ok();
+	}
+	
+	[HttpPost("google")]
+	public async Task<IActionResult> PostGoogle([FromBody] GoogleWebhookDto request)
+	{
+		_logger.LogInformation(JsonSerializer.Serialize(request));
+		await _messageService.ReceiveGmailAsync(request);
 		return Ok();
 	}
 	

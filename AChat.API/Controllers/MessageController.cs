@@ -19,14 +19,21 @@ public class MessageController : ControllerBase
     [HttpPost("facebook")]
     public async Task<IActionResult> Post(SendFacebookMessageRequest request)
     {
-        await _messageService.SendFacebookMessageAsync(request.ContactId, request.Message);
+        await _messageService.SendFacebookMessageAsync(request);
         return Ok();
     }
-
+    
     [HttpGet("facebook")]
     public async Task<IActionResult> Get([FromQuery] int contactId, [FromQuery] PagingRequest request)
     {
         var messages = await _messageService.GetFacebookMessagesAsync(contactId, request);
         return Ok(messages);
+    }
+    
+    [HttpPost("gmail")]
+    public async Task<IActionResult> Post(SendGmailMessageRequest request)
+    {
+        await _messageService.SendGmailMessageAsync(request);
+        return Ok();
     }
 }

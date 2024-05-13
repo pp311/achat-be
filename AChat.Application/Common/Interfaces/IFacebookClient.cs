@@ -1,4 +1,5 @@
 using AChat.Application.ViewModels.Facebook;
+using AChat.Domain;
 
 namespace AChat.Application.Common.Interfaces;
 
@@ -9,5 +10,5 @@ public interface IFacebookClient
     Task SubscribeAppAsync(string accessToken, string pageId);
     Task UnsubscribeAppsAsync(string? accessToken, List<string> pageIds);
     Task<FacebookInfoModel?> GetUserProfileInfoAsync(string? accessToken, string? userId);
-    Task SendMessageAsync(string? accessToken, string receiverId, string pageId, string message);
+    Task SendMessageAsync(string? accessToken, string receiverId, string pageId, string? message, string? attachmentUrl = null, string? fileType = null);
 }

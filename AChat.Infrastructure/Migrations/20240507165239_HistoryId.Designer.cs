@@ -4,6 +4,7 @@ using AChat.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AChat.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240507165239_HistoryId")]
+    partial class HistoryId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -232,9 +235,6 @@ namespace AChat.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Email")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<decimal>("HistoryId")
                         .HasColumnType("decimal(20,0)");
 
@@ -394,16 +394,16 @@ namespace AChat.Infrastructure.Migrations
                         {
                             Id = 1,
                             AccessFailedCount = 0,
-                            ConcurrencyStamp = "4b47c791-22df-45de-b25f-6c89370a6522",
+                            ConcurrencyStamp = "8569af18-8997-41aa-a5e2-6ea59cbd557d",
                             Email = "example@gmail.com",
                             EmailConfirmed = true,
                             FullName = "Admin",
                             LockoutEnabled = false,
                             NormalizedEmail = "EXAMPLE@GMAIL.COM",
                             NormalizedUserName = "ADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAEOwQMG7jzu26MdWov68is7U3lg0l/cFiKvp8HTOdfuZSJj3uwiuhWV3vMAFEtIb8MA==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEDM5WK96IA0Z2JIfQw6gk1pLIkIgydDSlngtOOKwFVgJRPOhypNM2bnJ93AQOt00ZA==",
                             PhoneNumberConfirmed = false,
-                            SecurityStamp = "adab31bc-8deb-485d-a666-bcb1a6b19539",
+                            SecurityStamp = "68784492-0a11-4aac-a16b-60234de30190",
                             TwoFactorEnabled = false,
                             UserName = "admin"
                         });

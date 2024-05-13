@@ -1,10 +1,15 @@
 using AChat.Application.Common.Configurations;
 using AChat.Application.Common.Interfaces;
+using AChat.Application.ViewModels.Message;
+using AChat.Domain;
 using AChat.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Minio;
 using Minio.DataModel.Args;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace AChat.Controllers;
 
@@ -59,24 +64,51 @@ public class AttachmentController : ControllerBase
         return Ok(url);
     }
     
-    [HttpPost("test-minio")]
+    [HttpPost("upload-facebook-attachment")]
     public async Task<IActionResult> TestMinio([FromForm] IFormFile file)
     {
+        var fileType = ValidateFacebookAttachment(Path.GetExtension(file.FileName), file.Length);
+        
         if (!await _minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket(_minioSettings.BucketName)))
             return BadRequest("Bucket does not exist");
         using var newMemoryStream = new MemoryStream();
+        
+        var fileName = file.FileName;
+        
         await file.CopyToAsync(newMemoryStream);
+        
         var size = newMemoryStream.Length;
         newMemoryStream.Position = 0;
         var args = new PutObjectArgs()
             .WithBucket(_minioSettings.BucketName)
-            .WithObject(file.FileName)
+            .WithObject($"/ro/{fileName}")
             .WithObjectSize(size)
             .WithStreamData(newMemoryStream);
         
-        var response = await _minioClient.PutObjectAsync(args);
+        await _minioClient.PutObjectAsync(args);
 
-        return Ok(response.ObjectName);
+        return Ok(new UploadFacebookAttachmentResponse
+        {
+            Type = fileType.ToValue(),
+            Url = $"{_minioSettings.BaseUrl}/ro/{fileName}"
+        });
+    }
+
+    private static FacebookAttachmentType ValidateFacebookAttachment(string fileExtension, long fileSize)
+    {
+        var fileType = FacebookConstant.GetAttachmentType(fileExtension);
+        
+        // validate file size
+        // image: 5MB
+        // audio & video & file: 16MB
+        
+        if (fileType == FacebookAttachmentType.Image && fileSize > 1024 * 1024 * 5)
+            throw new AppException("Image file size limit exceeded");
+        
+        if ((fileType == FacebookAttachmentType.Audio || fileType == FacebookAttachmentType.Video || fileType == FacebookAttachmentType.File) && fileSize > 1024 * 1024 * 16)
+            throw new AppException("Attachment size limit exceeded");
+
+        return fileType;
     }
 
     private static void ValidateImage(IFormFile file)

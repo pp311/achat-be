@@ -13,6 +13,7 @@ public class SourceService(
     IMapper mapper,
     ICurrentUser currentUser,
     IFacebookClient facebookClient,
+    IGmailClient gmailClient,
     IRepositoryBase<Source> sourceRepository) : BaseService(unitOfWork, mapper, currentUser)
 {
     public async Task ConnectFacebookAsync(string accessToken)
@@ -35,15 +36,12 @@ public class SourceService(
                     if (!existingSource.IsDeleted)
                         continue;
                     
-                    await facebookClient.SubscribeAppAsync(page.AccessToken, page.Id);
                     existingSource.AccessToken = page.AccessToken;
                     existingSource.IsDeleted = false;
                     sourceRepository.Update(existingSource);
                 }
                 else
                 {
-                    await facebookClient.SubscribeAppAsync(page.AccessToken, page.Id);
-                    
                     var source = new Source
                     {
                         Type = SourceType.Facebook,
@@ -55,6 +53,8 @@ public class SourceService(
                    
                     sourceRepository.Add(source);
                 }
+                
+                await facebookClient.SubscribeAppAsync(page.AccessToken, page.Id);
             }
         }
         catch
@@ -80,5 +80,62 @@ public class SourceService(
     {
         var sources = await sourceRepository.GetListAsync(_ => _.UserId == CurrentUser.Id);
         return Mapper.Map<List<SourceResponse>>(sources);
+    }
+    
+    public async Task ConnectGmailAsync (string code)
+    {
+        var (accessToken, refreshToken) = await gmailClient.GetCredentialFromCodeAsync(code);
+        
+        var credential = gmailClient.GetUserCredentialAsync(accessToken, refreshToken);
+
+        var gmailInfo = await gmailClient.GetInfoAsync(credential)
+            ?? throw new AppException("Failed to get Gmail info");
+
+        var existingSource = await sourceRepository.GetAsync(_ => _.UserId == CurrentUser.Id && _.Email == gmailInfo.Email);
+        
+        var historyId = await gmailClient.GetHistoryIdAsync(credential);
+        
+        if (existingSource != null)
+        {
+            existingSource.Name = gmailInfo.Name;
+            existingSource.AccessToken = accessToken;
+            existingSource.RefreshToken = refreshToken;
+            existingSource.HistoryId = historyId;
+            existingSource.IsDeleted = false;
+            sourceRepository.Update(existingSource);
+        }
+        else
+        {
+            var source = new Source
+            {
+                Type = SourceType.Gmail,
+                Name = gmailInfo.Name,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                HistoryId = historyId,
+                UserId = CurrentUser.Id
+            };
+            
+            sourceRepository.Add(source);
+        }
+
+        await gmailClient.SubscribeAsync(credential);
+        
+        
+        await UnitOfWork.SaveChangesAsync(); 
+    }
+    
+    public async Task DisconnectGmailAsync(int sourceId)
+    {
+        var source = await sourceRepository
+            .GetAsync(_ => _.Id == sourceId && _.UserId == CurrentUser.Id && _.Type == SourceType.Gmail)
+            ?? throw new NotFoundException(nameof(Source), sourceId.ToString());
+        
+        var credential = gmailClient.GetUserCredentialAsync(source.AccessToken!, source.RefreshToken!);
+        
+        await gmailClient.UnsubscribeAsync(credential);
+        
+        sourceRepository.Delete(source);
+        await UnitOfWork.SaveChangesAsync();
     }
 }

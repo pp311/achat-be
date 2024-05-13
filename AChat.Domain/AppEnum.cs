@@ -45,7 +45,7 @@ public enum AppRole
 
 public enum SourceType
 {
-    Google = 1,
+    Gmail = 1,
     Facebook = 2
 }
 
@@ -55,4 +55,12 @@ public enum Gender
     Female = 2,
     Other = 3,
     Unknown = 4
+}
+
+public enum FacebookAttachmentType
+{
+    [StringValue("image")]Image = 1,
+    [StringValue("video")]Video = 2,
+    [StringValue("audio")]Audio = 3,
+    [StringValue("file")]File = 4
 }

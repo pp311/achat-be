@@ -72,6 +72,7 @@ public static class ServiceExtension
 			.WithScopedLifetime());
 		
 		services.AddScoped<IFacebookClient, FacebookClient>();
+		services.AddScoped<IGmailClient, GmailClient>();
 		services.AddScoped<IImageUploader, ImageUploader>();
 
 		return services;
@@ -117,6 +118,7 @@ public static class ServiceExtension
 		builder.Services.Configure<TokenSettings>(builder.Configuration.GetSection("TokenSettings"));
 		builder.Services.Configure<FacebookSettings>(builder.Configuration.GetSection("FacebookSettings"));
 		builder.Services.Configure<MinioSettings>(builder.Configuration.GetSection("MinioSettings"));
+		builder.Services.Configure<GoogleSettings>(builder.Configuration.GetSection("GoogleSettings"));
 	}
 
 	public static IServiceCollection AddAuthentication(this IServiceCollection services,

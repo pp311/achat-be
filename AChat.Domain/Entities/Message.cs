@@ -7,6 +7,7 @@ public class Message : AuditableEntity
     public int ContactId { get; set; }  
     public string Content { get; set; } = null!;
     public string? Subject { get; set; }
+    public string? ThreadId { get; set; }
     public string? MId { get; set; }
     
     public bool IsEcho { get; set; }
