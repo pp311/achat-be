@@ -18,4 +18,5 @@ public enum ContactSortByOption
 {
     Id,
     Name,
+    LastMessage
 }

@@ -3,6 +3,7 @@ using System.Text.Json;
 using AChat.Application.Common.Dtos;
 using AChat.Application.Common.Extensions;
 using AChat.Application.Common.Interfaces;
+using AChat.Application.Common.Models;
 using AChat.Application.ViewModels;
 using AChat.Application.ViewModels.Facebook;
 using AChat.Application.ViewModels.Message;
@@ -11,6 +12,7 @@ using AChat.Domain.Entities;
 using AChat.Domain.Exceptions;
 using AChat.Domain.Repositories.Base;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Message = AChat.Domain.Entities.Message;
 
@@ -45,7 +47,7 @@ public class MessageService(
         foreach (var source in sources)
         {
             var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.FacebookUserId == message.Sender!.Id);
-
+            
             if (contact == null)
             {
                 try
@@ -53,13 +55,14 @@ public class MessageService(
                     var profileInfo = await facebookClient.GetUserProfileInfoAsync(source.AccessToken, message.Sender!.Id);
                     if (profileInfo == null)
                         continue;
-
+                    
                     contact = new Contact
                     {
                         SourceId = source.Id,
                         FacebookUserId = message.Sender!.Id,
                         Name = profileInfo.Name,
-                        UserId = source.UserId
+                        UserId = source.UserId,
+                        AvatarUrl = profileInfo?.Picture?.Data?.Url
                     };
 
                     contactRepository.Add(contact);
@@ -74,6 +77,7 @@ public class MessageService(
             {
                 MId = message.Message!.Mid,
                 IsEcho = message.Message!.IsEcho,
+                IsRead = false,
                 ContactId = contact.Id,
                 Attachments = message.Message!.Attachments.Select(_ => new MessageAttachment
                 {
@@ -107,15 +111,6 @@ public class MessageService(
         await facebookClient.SendMessageAsync(source.AccessToken, contact.FacebookUserId!, source.PageId!, request.Message, request.AttachmentUrl, request.AttachmentType);
     }
     
-    // public async Task<UploadFacebookAttachmentResponse> UploadFacebookAttachmentAsync(MemoryStream stream)
-    // {
-    //     // var source = await sourceRepository.GetAsync(_ => _.Id == request.SourceId && _.UserId == CurrentUser.Id)
-    //     //     ?? throw new NotFoundException(nameof(Source), request.SourceId.ToString());
-    //     //
-    //     // var attachmentUrl = await facebookClient.UploadAttachmentAsync(source.AccessToken, request.AttachmentUrl, request.AttachmentType);
-    //     // return new UploadFacebookAttachmentResponse { Url = attachmentUrl };
-    // }
-    
     public async Task<List<MessageResponse>> GetFacebookMessagesAsync(int contactId, PagingRequest request)
     {
         var isContactExists = await contactRepository.AnyAsync(_ => _.Id == contactId && _.Source.Type == SourceType.Facebook);
@@ -130,7 +125,7 @@ public class MessageService(
             .ProjectToListAsync<MessageResponse>(Mapper.ConfigurationProvider);
     }
     
-    public async Task ReceiveGmailAsync(GoogleWebhookDto message)
+    public async Task<List<MessageResponse>> ReceiveGmailAsync(GoogleWebhookDto message)
     {
         var data = Encoding.UTF8.GetString(Convert.FromBase64String(message.Message.Data)); 
         var webhookData = JsonSerializer.Deserialize<GoogleWebhookData>(data);
@@ -138,69 +133,92 @@ public class MessageService(
         if (webhookData == null)
         {
             logger.LogError("Failed to deserialize Google webhook data");
-            return;
+            return new List<MessageResponse>();
         }
 
-        var source = await sourceRepository.GetAsync(_ => _.Name == webhookData.EmailAddress && _.Type == SourceType.Gmail);
+        // Todo: handle multi source
+        var sources = await sourceRepository.GetListAsync(_ => _.Email == webhookData.EmailAddress && _.Type == SourceType.Gmail);
         
-        if (source == null)
+        if (sources.Count == 0)
         {
             logger.LogError("Failed to find Gmail source");
-            return;
+            return new List<MessageResponse>();
         }
         
-        var messages = new List<GmailDto>();
+        var responses = new List<MessageResponse>();
+        
+        foreach (var source in sources)
+        {
+            var messages = new List<GmailDto>();
 
-        try
-        {
             var credential = gmailClient.GetUserCredentialAsync(source.AccessToken!, source.RefreshToken!);
-            messages = await gmailClient.GetMessageAsync(credential, source.HistoryId);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to get Gmail messages");
-        }
-        
-        logger.LogInformation("Received {Count} Gmail messages", messages.Count);
-        
-        foreach (var gmailDto in messages)
-        {
-            if (await messageRepository.AnyAsync(_ => _.MId == gmailDto.Id))
-                continue;
-            
-            var isEcho = gmailDto.From == source.Name;
-            var contactMail = isEcho ? gmailDto.To : gmailDto.From;
-            var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.Email == contactMail);
-            
-            if (contact == null)
+            try
             {
-                contact = new Contact
+                messages = await gmailClient.GetMessageAsync(credential, source.HistoryId);
+                if (messages.Count == 0)
+                    throw new Exception();
+            }
+            catch (Exception)
+            {
+                try
                 {
-                    SourceId = source.Id,
-                    Email = gmailDto.From,
-                    UserId = source.UserId,
-                    Name = isEcho ? gmailDto.ToName : gmailDto.FromName
+                    logger.LogWarning("Failed to get Gmail messages, trying to get SENT messages");
+                    messages = await gmailClient.GetMessageAsync(credential, source.HistoryId, "SENT");
+                } 
+                catch (Exception)
+                {
+                    logger.LogError("Failed to get Gmail messages");
+                } 
+            }
+            
+            logger.LogInformation("Received {Count} Gmail messages", messages.Count);
+            
+            foreach (var gmailDto in messages)
+            {
+                if (await messageRepository.AnyAsync(_ => _.MId == gmailDto.Id && _.Contact.SourceId == source.Id))
+                    continue;
+                
+                var isEcho = gmailDto.From == source.Email;
+                var contactMail = isEcho ? gmailDto.To : gmailDto.From;
+                var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.Email == contactMail);
+                
+                if (contact == null)
+                {
+                    contact = new Contact
+                    {
+                        SourceId = source.Id,
+                        Email = gmailDto.From,
+                        UserId = source.UserId,
+                        Name = isEcho ? gmailDto.ToName : gmailDto.FromName
+                    };
+                    
+                    contactRepository.Add(contact);
+                }
+
+                var newMessage = new Message
+                {
+                    MId = gmailDto.Id,
+                    ContactId = contact.Id,
+                    Content = gmailDto.Content,
+                    Subject = gmailDto.Subject.Replace("Re: ", string.Empty),
+                    ThreadId = gmailDto.ThreadId,
+                    IsEcho = isEcho,
+                    IsRead = false
                 };
                 
-                contactRepository.Add(contact);
+                contact.Messages.Add(newMessage);
+                
+                var response = Mapper.Map<MessageResponse>(newMessage);
+                response.UserId = source.UserId;
+                responses.Add(response);
             }
-
-            var newMessage = new Message
-            {
-                MId = gmailDto.Id,
-                ContactId = contact.Id,
-                Content = gmailDto.Content,
-                Subject = gmailDto.Subject,
-                ThreadId = gmailDto.ThreadId,
-                IsEcho = isEcho
-            };
             
-            contact.Messages.Add(newMessage);
+            source.HistoryId = webhookData.HistoryId;
         }
         
-        source.HistoryId = webhookData.HistoryId;
-        
         await UnitOfWork.SaveChangesAsync();
+
+        return responses;
     }
     
     public async Task SendGmailMessageAsync(SendGmailMessageRequest request)
@@ -217,14 +235,74 @@ public class MessageService(
             ? source.Email!
             : $"{source.Name} <{source.Email}>";
 
+        Message sentMessage;
         if (request.ReplyMessageId > 0)
         {
             var replyMessage = await messageRepository.GetAsync(_ => _.Id == request.ReplyMessageId)
                                ?? throw new NotFoundException(nameof(Message), request.ReplyMessageId.ToString());
 
-            await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, request.Message, replyMessage.ThreadId);
+            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, request.Message, replyMessage.MId, replyMessage.ThreadId);
         }
         else
-            await gmailClient.SendGmailAsync(credential, from ,contact.Email!, request.Subject, request.Message);
+            sentMessage = await gmailClient.SendGmailAsync(credential, from ,contact.Email!, request.Subject, request.Message);
+        
+        sentMessage.ContactId = contact.Id;
+        
+        contact.Messages.Add(sentMessage);
+        
+        var otherContactsWithThisEmail = await contactRepository
+            .GetListAsync(_ => _.Email == contact.Email 
+                               && _.Source.Email == source.Email 
+                               && _.Id != contact.Id);
+        
+        foreach (var otherContact in otherContactsWithThisEmail)
+            otherContact.Messages.Add(sentMessage);
+        
+        await UnitOfWork.SaveChangesAsync();
+    }
+    
+    public async Task<PaginatedList<GetGmailThreadResponse>> GetGmailThreadsAsync(int contactId, PagingRequest request)
+    {
+        var isContactExists = await contactRepository.AnyAsync(_ => _.Id == contactId && _.Source.Type == SourceType.Gmail);
+        if (!isContactExists)
+            throw new NotFoundException(nameof(Contact), contactId.ToString());
+
+        var threads = await
+            messageRepository.GetQuery(_ => _.ContactId == contactId)
+                .OrderByDescending(_ => _.CreatedOn)
+                .GroupBy(_ => _.ThreadId)
+                .AsQueryable()
+                .Select(_ => new GetGmailThreadResponse
+                {
+                    Id = _.First().ThreadId!,
+                    Subject = _.First().Subject!,
+                    CreatedOn = _.First().CreatedOn!.Value,
+                    Snippet = _.First().Content,
+                    IsRead = _.All(m => m.IsRead)
+                })
+                .ToPaginatedListAsync(request.PageNumber, request.PageSize);
+
+        return threads;
+    }
+    
+    public async Task<List<MessageResponse>> GetThreadMessagesAsync(int contactId, string threadId)
+    {
+        var isContactExists = await contactRepository.AnyAsync(_ => _.Id == contactId && _.Source.Type == SourceType.Gmail);
+        if (!isContactExists)
+            throw new NotFoundException(nameof(Contact), contactId.ToString());
+
+        return await messageRepository.GetQuery(_ => _.ContactId == contactId && _.ThreadId == threadId)
+            .OrderBy(_ => _.CreatedOn)
+            .ProjectToListAsync<MessageResponse>(Mapper.ConfigurationProvider);
+    }
+    
+    public async Task MarkReadAsync(int contactId, int messageId)
+    {
+        var message = await messageRepository.GetAsync(_ => _.Id == messageId && _.ContactId == contactId)
+                      ?? throw new NotFoundException(nameof(Message), messageId.ToString());
+
+        await messageRepository
+            .GetQuery(_ => _.ContactId == contactId && _.Id <= messageId && _.ThreadId == message.ThreadId)
+            .ExecuteUpdateAsync(_ => _.SetProperty(p => p.IsRead, true));
     }
 }

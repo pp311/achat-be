@@ -110,6 +110,7 @@ public class SourceService(
             {
                 Type = SourceType.Gmail,
                 Name = gmailInfo.Name,
+                Email = gmailInfo.Email,
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
                 HistoryId = historyId,
@@ -118,8 +119,14 @@ public class SourceService(
             
             sourceRepository.Add(source);
         }
-
-        await gmailClient.SubscribeAsync(credential);
+        
+        var isOtherSourceUseThisEmail = await sourceRepository.AnyAsync(_ => _.Email == gmailInfo.Email 
+                                                                             && _.UserId != CurrentUser.Id
+                                                                             && _.Type == SourceType.Gmail 
+                                                                             && !_.IsDeleted);
+        
+        if (!isOtherSourceUseThisEmail)
+            await gmailClient.SubscribeAsync(credential);
         
         
         await UnitOfWork.SaveChangesAsync(); 
@@ -131,9 +138,16 @@ public class SourceService(
             .GetAsync(_ => _.Id == sourceId && _.UserId == CurrentUser.Id && _.Type == SourceType.Gmail)
             ?? throw new NotFoundException(nameof(Source), sourceId.ToString());
         
-        var credential = gmailClient.GetUserCredentialAsync(source.AccessToken!, source.RefreshToken!);
-        
-        await gmailClient.UnsubscribeAsync(credential);
+        var isOtherSourceUseThisEmail = await sourceRepository.AnyAsync(_ => _.Email == source.Email 
+                                                                             && _.UserId != CurrentUser.Id
+                                                                             && _.Type == SourceType.Gmail 
+                                                                             && !_.IsDeleted);
+
+        if (!isOtherSourceUseThisEmail)
+        {
+            var credential = gmailClient.GetUserCredentialAsync(source.AccessToken!, source.RefreshToken!);
+            await gmailClient.UnsubscribeAsync(credential);
+        }
         
         sourceRepository.Delete(source);
         await UnitOfWork.SaveChangesAsync();

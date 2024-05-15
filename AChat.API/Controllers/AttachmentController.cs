@@ -77,12 +77,15 @@ public class AttachmentController : ControllerBase
         
         await file.CopyToAsync(newMemoryStream);
         
+        var contentType = file.ContentType;
+        
         var size = newMemoryStream.Length;
         newMemoryStream.Position = 0;
         var args = new PutObjectArgs()
             .WithBucket(_minioSettings.BucketName)
             .WithObject($"/ro/{fileName}")
             .WithObjectSize(size)
+            .WithContentType(contentType)
             .WithStreamData(newMemoryStream);
         
         await _minioClient.PutObjectAsync(args);

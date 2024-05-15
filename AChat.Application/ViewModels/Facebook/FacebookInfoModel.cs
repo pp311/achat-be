@@ -12,6 +12,8 @@ public class FacebookInfoModel
     
     public string? Name { get; set; }
     
+	public FacebookProfilePicture? Picture { get; set; }
+    
     public FacebookAccountModel? Accounts { get; set; }
     public FacebookErrorModel? Error { get; set; }
 }
@@ -34,4 +36,14 @@ public class FacebookAccessToken
 {
 	[JsonPropertyName("access_token")]
 	public string AccessToken { get; set; } = null!;
+}
+
+public class FacebookProfilePicture
+{
+	public FacebookProfilePictureData? Data { get; set; }
+}
+
+public class FacebookProfilePictureData
+{
+	public string? Url { get; set; }
 }

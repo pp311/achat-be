@@ -11,6 +11,7 @@ public class Message : AuditableEntity
     public string? MId { get; set; }
     
     public bool IsEcho { get; set; }
+    public bool IsRead { get; set; }
     
     public Contact Contact { get; set; } = null!;
     

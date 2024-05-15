@@ -26,12 +26,8 @@ public class MessageResponse
     public DateTime CreatedOn { get; set; }
     [JsonPropertyName("updatedOn")]
     public DateTime? UpdatedOn { get; set; }
-    [JsonPropertyName("url")]
-    public string Url { get; set; } = null!;
-    [JsonPropertyName("fileName")]
-    public string? FileName { get; set; }
-    [JsonPropertyName("type")]
-    public string? Type { get; set; }
+    [JsonPropertyName("isRead")]
+    public bool IsRead { get; set; }
 }
 
 public class MessageAttachmentResponse

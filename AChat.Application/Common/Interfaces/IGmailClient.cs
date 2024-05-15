@@ -1,4 +1,5 @@
 using AChat.Application.Common.Dtos;
+using AChat.Domain.Entities;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Oauth2.v2.Data;
 
@@ -12,8 +13,8 @@ public interface IGmailClient
 
     Task<ulong> GetHistoryIdAsync(UserCredential credential);
     Task<List<GmailDto>> GetEmailsAsync(UserCredential credential);
-    Task SendGmailAsync(UserCredential credential, string from, string to, string subject, string body, string? threadId = default);
-    Task<List<GmailDto>> GetMessageAsync(UserCredential credential, ulong historyId);
+    Task<Domain.Entities.Message> SendGmailAsync(UserCredential credential, string from, string to, string subject, string body, string? replyMId = default, string? threadId = default);
+    Task<List<GmailDto>> GetMessageAsync(UserCredential credential, ulong historyId, string labelId = "INBOX");
     Task<Userinfo?> GetInfoAsync(UserCredential credential);
     Task SubscribeAsync(UserCredential credential);
     Task UnsubscribeAsync(UserCredential credential);

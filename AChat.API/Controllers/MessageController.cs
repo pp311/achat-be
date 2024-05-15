@@ -36,4 +36,25 @@ public class MessageController : ControllerBase
         await _messageService.SendGmailMessageAsync(request);
         return Ok();
     }
+    
+    [HttpGet("gmail")]
+    public async Task<IActionResult> GetThreads([FromQuery] int contactId, [FromQuery] PagingRequest request)
+    {
+        var messages = await _messageService.GetGmailThreadsAsync(contactId, request);
+        return Ok(messages);
+    }
+    
+    [HttpGet("gmail/contacts/{contactId:int}/threads/{threadId}")]
+    public async Task<IActionResult> GetThreadMessages([FromRoute] string threadId, [FromRoute] int contactId)
+    {
+        var messages = await _messageService.GetThreadMessagesAsync(contactId, threadId);
+        return Ok(messages);
+    }
+    
+    [HttpPost("mark-read")]
+    public async Task<IActionResult> MarkRead([FromQuery] int contactId, int messageId)
+    {
+        await _messageService.MarkReadAsync(contactId, messageId);
+        return Ok();
+    }
 }

@@ -78,9 +78,21 @@ public class FacebookClient(IOptions<FacebookSettings> settings, ILogger<Faceboo
         var client = new RestClient(_settings.BaseUrl + $"/{userId}");
         var request = new RestRequest()
             .AddParameter("access_token", accessToken)
-            .AddParameter("fields", "id,name");
+            .AddParameter("fields", "id,name,picture");
         
         return await client.GetAsync<FacebookInfoModel>(request);
+    }
+    
+    public async Task<FacebookProfilePicture?> GetProfilePictureAsync(string? accessToken, string? userId)
+    {
+        var client = new RestClient(_settings.BaseUrl + $"/{userId}/picture");
+        var request = new RestRequest()
+            .AddParameter("type", "large")
+            .AddParameter("access_token", accessToken);
+        
+        var response = await client.ExecuteAsync<FacebookProfilePicture>(request);  
+        
+        return await client.GetAsync<FacebookProfilePicture>(request);
     }
     
     public async Task SendMessageAsync(string? accessToken, string receiverId, string pageId, string? message, string? attachmentUrl, string? fileType)
