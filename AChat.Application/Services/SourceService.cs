@@ -5,6 +5,7 @@ using AChat.Domain.Entities;
 using AChat.Domain.Exceptions;
 using AChat.Domain.Repositories.Base;
 using AutoMapper;
+using Message = AChat.Domain.Entities.Message;
 
 namespace AChat.Application.Services;
 
@@ -12,6 +13,8 @@ public class SourceService(
     IUnitOfWork unitOfWork,
     IMapper mapper,
     ICurrentUser currentUser,
+    IRepositoryBase<Message> messageRepository,
+    IRepositoryBase<Contact> contactRepository,
     IFacebookClient facebookClient,
     IGmailClient gmailClient,
     IRepositoryBase<Source> sourceRepository) : BaseService(unitOfWork, mapper, currentUser)
@@ -150,6 +153,9 @@ public class SourceService(
         }
         
         sourceRepository.Delete(source);
+        
+        contactRepository.DeleteRange(await contactRepository.GetListAsync(_ => _.SourceId == sourceId));
+        
         await UnitOfWork.SaveChangesAsync();
     }
 }

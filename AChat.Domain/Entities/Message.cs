@@ -8,7 +8,7 @@ public class Message : AuditableEntity
     public string Content { get; set; } = null!;
     public string? Subject { get; set; }
     public string? ThreadId { get; set; }
-    public string? MId { get; set; }
+    public string MId { get; set; } = null!;
     
     public bool IsEcho { get; set; }
     public bool IsRead { get; set; }

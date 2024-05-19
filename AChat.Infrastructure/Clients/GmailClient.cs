@@ -32,7 +32,7 @@ public class GmailClient : IGmailClient
 
     public async Task<(string AccessToken, string RefreshToken)> GetCredentialFromCodeAsync(string code)
     {
-        var token = await GetFlow().ExchangeCodeForTokenAsync("me", code, "http://localhost:5173", CancellationToken.None);
+        var token = await GetFlow().ExchangeCodeForTokenAsync("me", code, _googleSettings.RedirectUri, CancellationToken.None);
 
         return (token.AccessToken, token.RefreshToken);
     }
@@ -99,7 +99,7 @@ public class GmailClient : IGmailClient
                         From = from,
                         To = to,
                         Content = text,
-                        ThreadId = threadId
+                        ThreadId = threadId,
                     };
                     
                     result.Add(email);
@@ -207,6 +207,7 @@ public class GmailClient : IGmailClient
                 var from = headers?.FirstOrDefault(_ => _.Name == "From")?.Value;
                 var to = headers?.FirstOrDefault(_ => _.Name == "To")?.Value;
                 var messageId = headers?.FirstOrDefault(_ => _.Name == "Message-ID")?.Value;
+                var replyTo = headers?.FirstOrDefault(_ => _.Name == "In-Reply-To")?.Value;
                 var snippet = messageResponse.Snippet;
                 
                 var parts = payload.Parts;
@@ -238,7 +239,8 @@ public class GmailClient : IGmailClient
                             ThreadId = threadId,
                             FromName = from.Contains("<") ? from.Split("<")[0].Trim() : from,
                             ToName = to.Contains("<") ? to.Split("<")[0].Trim() : to,
-                            Snippet = snippet
+                            Snippet = snippet,
+                            ReplyTo = replyTo
                         };
                         
                         result.Add(email);

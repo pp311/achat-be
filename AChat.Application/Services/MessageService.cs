@@ -175,12 +175,21 @@ public class MessageService(
             
             foreach (var gmailDto in messages)
             {
+                // prevent duplicate message
                 if (await messageRepository.AnyAsync(_ => _.MId == gmailDto.Id && _.Contact.SourceId == source.Id))
                     continue;
                 
                 var isEcho = gmailDto.From == source.Email;
                 var contactMail = isEcho ? gmailDto.To : gmailDto.From;
                 var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.Email == contactMail);
+                
+                // ignore reply messages if source is connected after that thread created
+                if (!string.IsNullOrEmpty(gmailDto.ReplyTo)
+                    && !await messageRepository.AnyAsync(_ => _.ThreadId == gmailDto.ThreadId && _.Contact.SourceId == source.Id))
+                    continue;
+                
+                if (responses.Any(_ => _.MId == gmailDto.Id && _.ContactId == contact?.Id))
+                    continue;
                 
                 if (contact == null)
                 {
@@ -217,6 +226,21 @@ public class MessageService(
         }
         
         await UnitOfWork.SaveChangesAsync();
+        
+        // get duplicate messages
+        var duplicateMessages = await messageRepository.GetQuery(_ => _.Contact.Source.Email == webhookData.EmailAddress)
+            .GroupBy(_ => _.MId)
+            .Where(_ => _.Count() > 1)
+            .Select(_ => new
+            {
+                MId = _.Key, 
+                Id = _.First().Id
+            })
+            .ToListAsync();
+
+        foreach (var duplicateMessage in duplicateMessages)
+            await messageRepository.GetQuery(_ => _.MId == duplicateMessage.MId && _.Id != duplicateMessage.Id)
+                .ExecuteDeleteAsync();
 
         return responses;
     }
