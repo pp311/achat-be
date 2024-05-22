@@ -21,6 +21,6 @@ RUN dotnet publish "AChat.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p
 
 FROM base AS final
 WORKDIR /app
-COPY --from=publish /src/Novle.API/https/aspnetapp.pfx /https/
+COPY --from=publish /src/AChat.API/https/aspnetapp.pfx /https/
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "AChat.API.dll"]
