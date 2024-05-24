@@ -7,8 +7,9 @@ public class SourceResponse
 {
     public int Id { get; set; }
     public SourceType Type { get; set; }
-    
+
     public string? Name { get; set; }
+    public string? Email { get; set; }
 }
 
 public class MappingProfile : Profile

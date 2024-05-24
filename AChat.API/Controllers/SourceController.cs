@@ -15,32 +15,32 @@ public class SourceController : ControllerBase
     {
         _sourceService = sourceService;
     }
-    
+
     [HttpPost("connect-facebook")]
     public async Task ConnectFacebook([FromQuery] string accessToken)
     {
         await _sourceService.ConnectFacebookAsync(accessToken);
     }
-    
+
     [HttpPost("disconnect-facebook")]
-    public async Task DisconnectFacebook([FromQuery] string pageId)
+    public async Task DisconnectFacebook([FromQuery] int sourceId)
     {
-        await _sourceService.DisconnectFacebookAsync(pageId);
+        await _sourceService.DisconnectFacebookAsync(sourceId);
     }
-    
+
     [HttpGet]
     public async Task<IActionResult> Get()
     {
         var sources = await _sourceService.GetSourcesAsync();
         return Ok(sources);
     }
-    
+
     [HttpPost("connect-google")]
     public async Task ConnectGoogle([FromQuery] string code)
     {
         await _sourceService.ConnectGmailAsync(code);
     }
-    
+
     [HttpPost("disconnect-google")]
     public async Task DisconnectGoogle([FromQuery] int sourceId)
     {

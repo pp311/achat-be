@@ -83,18 +83,58 @@ public class AttachmentController : ControllerBase
         newMemoryStream.Position = 0;
         var args = new PutObjectArgs()
             .WithBucket(_minioSettings.BucketName)
-            .WithObject($"/ro/{fileName}")
+            .WithObject($"{fileName}")
             .WithObjectSize(size)
             .WithContentType(contentType)
             .WithStreamData(newMemoryStream);
         
-        await _minioClient.PutObjectAsync(args);
+        var response = await _minioClient.PutObjectAsync(args);
 
         return Ok(new UploadFacebookAttachmentResponse
         {
             Type = fileType.ToValue(),
-            Url = $"{_minioSettings.BaseUrl}/ro/{fileName}"
+            Url = $"{_minioSettings.BaseUrl}/{fileName}"
         });
+    }
+    
+    [HttpPost("upload-gmail-attachment")]
+    public async Task<IActionResult> UploadGmailAttachment([FromForm] List<IFormFile>? files)
+    {
+        if (files == null || files.Count == 0)
+            return BadRequest("File is empty");
+
+        var urls = new List<string>();
+        var tasks = new List<Task>();
+        foreach (var file in files)
+        {
+            var fileType = ValidateFacebookAttachment(Path.GetExtension(file.FileName), file.Length);
+            
+            if (!await _minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket(_minioSettings.BucketName)))
+                return BadRequest("Bucket does not exist");
+            using var newMemoryStream = new MemoryStream();
+            
+            var fileName = file.FileName;
+            
+            await file.CopyToAsync(newMemoryStream);
+            
+            var contentType = file.ContentType;
+            
+            var size = newMemoryStream.Length;
+            newMemoryStream.Position = 0;
+            var args = new PutObjectArgs()
+                .WithBucket(_minioSettings.BucketName)
+                .WithObject($"{fileName}")
+                .WithObjectSize(size)
+                .WithContentType(contentType)
+                .WithStreamData(newMemoryStream);
+            
+            tasks.Add(_minioClient.PutObjectAsync(args));
+            urls.Add($"{_minioSettings.BaseUrl}/{fileName}");
+        }
+        
+        await Task.WhenAll(tasks);
+
+        return Ok(urls);
     }
 
     private static FacebookAttachmentType ValidateFacebookAttachment(string fileExtension, long fileSize)

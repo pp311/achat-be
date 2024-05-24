@@ -47,7 +47,7 @@ public class MessageService(
         foreach (var source in sources)
         {
             var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.FacebookUserId == message.Sender!.Id);
-            
+
             if (contact == null)
             {
                 try
@@ -55,7 +55,7 @@ public class MessageService(
                     var profileInfo = await facebookClient.GetUserProfileInfoAsync(source.AccessToken, message.Sender!.Id);
                     if (profileInfo == null)
                         continue;
-                    
+
                     contact = new Contact
                     {
                         SourceId = source.Id,
@@ -110,7 +110,7 @@ public class MessageService(
 
         await facebookClient.SendMessageAsync(source.AccessToken, contact.FacebookUserId!, source.PageId!, request.Message, request.AttachmentUrl, request.AttachmentType);
     }
-    
+
     public async Task<List<MessageResponse>> GetFacebookMessagesAsync(int contactId, PagingRequest request)
     {
         var isContactExists = await contactRepository.AnyAsync(_ => _.Id == contactId && _.Source.Type == SourceType.Facebook);
@@ -124,12 +124,12 @@ public class MessageService(
             .Take(request.PageSize)
             .ProjectToListAsync<MessageResponse>(Mapper.ConfigurationProvider);
     }
-    
+
     public async Task<List<MessageResponse>> ReceiveGmailAsync(GoogleWebhookDto message)
     {
-        var data = Encoding.UTF8.GetString(Convert.FromBase64String(message.Message.Data)); 
+        var data = Encoding.UTF8.GetString(Convert.FromBase64String(message.Message.Data));
         var webhookData = JsonSerializer.Deserialize<GoogleWebhookData>(data);
-        
+
         if (webhookData == null)
         {
             logger.LogError("Failed to deserialize Google webhook data");
@@ -138,15 +138,15 @@ public class MessageService(
 
         // Todo: handle multi source
         var sources = await sourceRepository.GetListAsync(_ => _.Email == webhookData.EmailAddress && _.Type == SourceType.Gmail);
-        
+
         if (sources.Count == 0)
         {
             logger.LogError("Failed to find Gmail source");
             return new List<MessageResponse>();
         }
-        
+
         var responses = new List<MessageResponse>();
-        
+
         foreach (var source in sources)
         {
             var messages = new List<GmailDto>();
@@ -158,50 +158,51 @@ public class MessageService(
                 if (messages.Count == 0)
                     throw new Exception();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 try
                 {
                     logger.LogWarning("Failed to get Gmail messages, trying to get SENT messages");
                     messages = await gmailClient.GetMessageAsync(credential, source.HistoryId, "SENT");
-                } 
-                catch (Exception)
+                }
+                catch (Exception e)
                 {
-                    logger.LogError("Failed to get Gmail messages");
-                } 
+                    logger.LogError(e, "Failed to get Gmail messages");
+                }
             }
-            
+
             logger.LogInformation("Received {Count} Gmail messages", messages.Count);
-            
+
             foreach (var gmailDto in messages)
             {
                 // prevent duplicate message
                 if (await messageRepository.AnyAsync(_ => _.MId == gmailDto.Id && _.Contact.SourceId == source.Id))
                     continue;
-                
+
                 var isEcho = gmailDto.From == source.Email;
                 var contactMail = isEcho ? gmailDto.To : gmailDto.From;
                 var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.Email == contactMail);
-                
+
                 // ignore reply messages if source is connected after that thread created
                 if (!string.IsNullOrEmpty(gmailDto.ReplyTo)
                     && !await messageRepository.AnyAsync(_ => _.ThreadId == gmailDto.ThreadId && _.Contact.SourceId == source.Id))
                     continue;
-                
+
                 if (responses.Any(_ => _.MId == gmailDto.Id && _.ContactId == contact?.Id))
                     continue;
-                
+
                 if (contact == null)
                 {
                     contact = new Contact
                     {
                         SourceId = source.Id,
-                        Email = gmailDto.From,
+                        Email = contactMail,
                         UserId = source.UserId,
                         Name = isEcho ? gmailDto.ToName : gmailDto.FromName
                     };
-                    
+
                     contactRepository.Add(contact);
+                    await UnitOfWork.SaveChangesAsync();
                 }
 
                 var newMessage = new Message
@@ -212,28 +213,36 @@ public class MessageService(
                     Subject = gmailDto.Subject.Replace("Re: ", string.Empty),
                     ThreadId = gmailDto.ThreadId,
                     IsEcho = isEcho,
-                    IsRead = false
+                    IsRead = false,
+                    CreatedOn = DateTime.UtcNow,
+                    UpdatedOn = DateTime.UtcNow,
+                    Attachments = gmailDto.Attachments.Select(_ => new MessageAttachment
+                    {
+                        Url = _.Url,
+                        FileName = _.FileName,
+                        Type = _.Type
+                    }).ToList()
                 };
-                
+
                 contact.Messages.Add(newMessage);
-                
+
                 var response = Mapper.Map<MessageResponse>(newMessage);
                 response.UserId = source.UserId;
                 responses.Add(response);
             }
-            
+
             source.HistoryId = webhookData.HistoryId;
         }
-        
+
         await UnitOfWork.SaveChangesAsync();
-        
+
         // get duplicate messages
         var duplicateMessages = await messageRepository.GetQuery(_ => _.Contact.Source.Email == webhookData.EmailAddress)
             .GroupBy(_ => _.MId)
             .Where(_ => _.Count() > 1)
             .Select(_ => new
             {
-                MId = _.Key, 
+                MId = _.Key,
                 Id = _.First().Id
             })
             .ToListAsync();
@@ -244,8 +253,8 @@ public class MessageService(
 
         return responses;
     }
-    
-    public async Task SendGmailMessageAsync(SendGmailMessageRequest request)
+
+    public async Task<List<MessageResponse>> SendGmailMessageAsync(SendGmailMessageRequest request)
     {
         var contact = await contactRepository.GetAsync(_ => _.Id == request.ContactId)
             ?? throw new NotFoundException(nameof(Contact), request.ContactId.ToString());
@@ -254,7 +263,7 @@ public class MessageService(
             ?? throw new NotFoundException(nameof(Source), contact.SourceId.ToString());
 
         var credential = gmailClient.GetUserCredentialAsync(source.AccessToken!, source.RefreshToken!);
-        
+
         var from = string.IsNullOrEmpty(source.Name)
             ? source.Email!
             : $"{source.Name} <{source.Email}>";
@@ -268,23 +277,40 @@ public class MessageService(
             sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, request.Message, replyMessage.MId, replyMessage.ThreadId);
         }
         else
-            sentMessage = await gmailClient.SendGmailAsync(credential, from ,contact.Email!, request.Subject, request.Message);
-        
+            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, request.Message);
+
+        sentMessage.UpdatedOn = DateTime.UtcNow;
+        sentMessage.CreatedOn = DateTime.UtcNow;
+
         sentMessage.ContactId = contact.Id;
-        
+        var responses = new List<MessageResponse>();
+
+        var response = Mapper.Map<MessageResponse>(sentMessage);
+        response.UserId = source.UserId;
+        responses.Add(response);
+
         contact.Messages.Add(sentMessage);
-        
+
         var otherContactsWithThisEmail = await contactRepository
-            .GetListAsync(_ => _.Email == contact.Email 
-                               && _.Source.Email == source.Email 
+            .GetListAsync(_ => _.Email == contact.Email
+                               && _.Source.Email == source.Email
                                && _.Id != contact.Id);
-        
+
         foreach (var otherContact in otherContactsWithThisEmail)
-            otherContact.Messages.Add(sentMessage);
-        
+        {
+            var copyMessage = sentMessage.Copy();
+            copyMessage.ContactId = otherContact.Id;
+            otherContact.Messages.Add(copyMessage);
+            var copyResponse = Mapper.Map<MessageResponse>(copyMessage);
+            copyResponse.UserId = source.UserId;
+            responses.Add(response);
+        }
+
         await UnitOfWork.SaveChangesAsync();
+
+        return responses;
     }
-    
+
     public async Task<PaginatedList<GetGmailThreadResponse>> GetGmailThreadsAsync(int contactId, PagingRequest request)
     {
         var isContactExists = await contactRepository.AnyAsync(_ => _.Id == contactId && _.Source.Type == SourceType.Gmail);
@@ -308,7 +334,7 @@ public class MessageService(
 
         return threads;
     }
-    
+
     public async Task<List<MessageResponse>> GetThreadMessagesAsync(int contactId, string threadId)
     {
         var isContactExists = await contactRepository.AnyAsync(_ => _.Id == contactId && _.Source.Type == SourceType.Gmail);
@@ -319,7 +345,7 @@ public class MessageService(
             .OrderBy(_ => _.CreatedOn)
             .ProjectToListAsync<MessageResponse>(Mapper.ConfigurationProvider);
     }
-    
+
     public async Task MarkReadAsync(int contactId, int messageId)
     {
         var message = await messageRepository.GetAsync(_ => _.Id == messageId && _.ContactId == contactId)
@@ -328,5 +354,23 @@ public class MessageService(
         await messageRepository
             .GetQuery(_ => _.ContactId == contactId && _.Id <= messageId && _.ThreadId == message.ThreadId)
             .ExecuteUpdateAsync(_ => _.SetProperty(p => p.IsRead, true));
+    }
+
+    public async Task DeleteGmailThreadsAsync(int contactId, List<string> threadIds)
+    {
+        var contact = await contactRepository.GetQuery(_ => _.Id == contactId && _.Source.Type == SourceType.Gmail)
+            .Include(_ => _.Source)
+            .FirstOrDefaultAsync();
+        if (contact == null)
+            throw new NotFoundException(nameof(Contact), contactId.ToString());
+
+        var source = contact.Source;
+
+        var credential = gmailClient.GetUserCredentialAsync(source.AccessToken!, source.RefreshToken!);
+
+        await gmailClient.DeleteThreadsAsync(credential, threadIds);
+
+        await messageRepository.GetQuery(_ => !string.IsNullOrEmpty(_.ThreadId) && threadIds.Contains(_.ThreadId))
+            .ExecuteDeleteAsync();
     }
 }

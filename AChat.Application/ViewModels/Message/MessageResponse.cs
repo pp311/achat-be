@@ -28,6 +28,8 @@ public class MessageResponse
     public DateTime? UpdatedOn { get; set; }
     [JsonPropertyName("isRead")]
     public bool IsRead { get; set; }
+    [JsonPropertyName("threadId")]
+    public string? threadId { get; set; }
 }
 
 public class MessageAttachmentResponse

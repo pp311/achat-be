@@ -1,3 +1,5 @@
+using AChat.Domain.Entities;
+
 namespace AChat.Application.Common.Dtos;
 
 public class GmailDto
@@ -12,4 +14,5 @@ public class GmailDto
     public string? FromName { get; set; }
     public string? ToName { get; set; }
     public string? Snippet { get; set; }
+    public List<MessageAttachment> Attachments { get; set; } = new();
 }

@@ -12,6 +12,10 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
     {
         builder.Property(m => m.Content)
             .IsRequired();
+        
+        builder.Property(m => m.ThreadId).HasMaxLength(StringLength.Name);
+        
+        builder.HasIndex(m => m.ThreadId);
 
         builder.HasOne(m => m.Contact)
             .WithMany(c => c.Messages)

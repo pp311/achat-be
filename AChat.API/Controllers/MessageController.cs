@@ -1,7 +1,10 @@
+using System.Text.Json;
 using AChat.Application.Services;
 using AChat.Application.ViewModels;
 using AChat.Application.ViewModels.Message;
+using AChat.SignalRHub;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace AChat.Controllers;
 
@@ -10,10 +13,12 @@ namespace AChat.Controllers;
 public class MessageController : ControllerBase
 {
     private readonly MessageService _messageService;
+	private readonly IHubContext<SignalRHub.SignalRHub, ISignalRClient> _hubContext;
 
-    public MessageController(MessageService messageService)
+    public MessageController(MessageService messageService, IHubContext<SignalRHub.SignalRHub, ISignalRClient> hubContext)
     {
         _messageService = messageService;
+        _hubContext = hubContext;
     }
 
     [HttpPost("facebook")]
@@ -33,7 +38,12 @@ public class MessageController : ControllerBase
     [HttpPost("gmail")]
     public async Task<IActionResult> Post(SendGmailMessageRequest request)
     {
-        await _messageService.SendGmailMessageAsync(request);
+        var responses = await _messageService.SendGmailMessageAsync(request);
+        
+		foreach (var response in responses)
+		{
+			await _hubContext.Clients.User(response.UserId.ToString()).ReceiveMessage(JsonSerializer.Serialize(response));
+		}
         return Ok();
     }
     
@@ -49,6 +59,13 @@ public class MessageController : ControllerBase
     {
         var messages = await _messageService.GetThreadMessagesAsync(contactId, threadId);
         return Ok(messages);
+    }
+    
+    [HttpDelete("gmail/threads")]
+    public async Task<IActionResult> DeleteThreads([FromQuery] int contactId, [FromQuery] List<string> threadIds)
+    {
+        await _messageService.DeleteGmailThreadsAsync(contactId, threadIds);
+        return Ok();
     }
     
     [HttpPost("mark-read")]

@@ -18,4 +18,5 @@ public interface IGmailClient
     Task<Userinfo?> GetInfoAsync(UserCredential credential);
     Task SubscribeAsync(UserCredential credential);
     Task UnsubscribeAsync(UserCredential credential);
+    Task DeleteThreadsAsync(UserCredential credential, List<string> threadIds);
 }
