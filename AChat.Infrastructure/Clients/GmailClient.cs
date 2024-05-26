@@ -225,14 +225,35 @@ public class GmailClient : IGmailClient
                 var messageId = headers?.FirstOrDefault(_ => _.Name == "Message-ID")?.Value;
                 var replyTo = headers?.FirstOrDefault(_ => _.Name == "In-Reply-To")?.Value;
                 var snippet = messageResponse?.Snippet ?? string.Empty;
-                var attachments = payload.Parts?.Where(_ => !string.IsNullOrEmpty(_.Filename)).ToList();
+                var attachments = payload.Parts?
+                    .Where(_ => !string.IsNullOrEmpty(_.Filename) 
+                                && _.Headers.FirstOrDefault(_ => _.Name == "Content-Disposition")?.Value.Contains("inline") != true)
+                    .ToList();
+                var inlineImages = payload.Parts?
+                    .Where(_ => !string.IsNullOrEmpty(_.Filename) 
+                                && _.Headers.FirstOrDefault(_ => _.Name == "Content-Disposition")?.Value.Contains("inline") == true)
+                    .ToList();
 
                 var parts = payload.Parts;
 
                 // get email content
-                var body = string.Empty;
-                var htmlBody = string.Empty;
-                if (parts?.Any(_ => _.MimeType == "multipart/alternative") == true)
+                string? body;
+                string? htmlBody;
+                // attachments & inline images
+                if (parts?.Any(_ => _.MimeType == "multipart/related") == true)
+                {
+                    parts = parts?.Where(_ => _.MimeType == "multipart/related").FirstOrDefault()?.Parts;
+                    
+                    inlineImages = parts?.Where(_ => !string.IsNullOrEmpty(_.Filename) 
+                                                    && _.Headers.FirstOrDefault(_ => _.Name == "Content-Disposition")?.Value.Contains("inline") == true)
+                                        .ToList();
+                    
+                    var contentParts = parts?.Where(_ => _.MimeType == "multipart/alternative").FirstOrDefault()?.Parts;
+
+                    body = contentParts?.FirstOrDefault()?.Body?.Data;
+                    htmlBody = contentParts?.Where(_ => _.MimeType == "text/html").FirstOrDefault()?.Body?.Data;
+                }
+                else if (parts?.Any(_ => _.MimeType == "multipart/alternative") == true)
                 {
                     parts = parts?.Where(_ => _.MimeType == "multipart/alternative").FirstOrDefault()?.Parts;
 
@@ -244,6 +265,7 @@ public class GmailClient : IGmailClient
                     body = parts?.FirstOrDefault()?.Body?.Data;
                     htmlBody = parts?.Where(_ => _.MimeType == "text/html").FirstOrDefault()?.Body?.Data;
                 }
+                
                 body = !string.IsNullOrEmpty(htmlBody) ? htmlBody : body;
                 if (body != null || attachments?.Any() == true)
                 {
@@ -256,6 +278,27 @@ public class GmailClient : IGmailClient
                     // For Outlook: "___________________________ ..."
                     text = Regex.Replace(text, @"\s*\bOn\b.*wrote:.[\s\S]*$", string.Empty);
                     text = Regex.Replace(text, @"_{20,}.*", string.Empty);
+                    
+                    // replace inline images
+                    foreach (var part in inlineImages ?? [])
+                    {
+                        if (part.Filename != null && part.Body.AttachmentId != null)
+                        {
+                            var attachmentId = part.Body.AttachmentId;
+                            var cid = part.Headers.FirstOrDefault(_ => _.Name == "X-Attachment-Id")?.Value;
+
+                            if (text.Contains($"cid:{cid}"))
+                            {
+                                var attachmentRequest = service.Users.Messages.Attachments.Get("me", message.Id, attachmentId);
+                                var attachmentResponse = await attachmentRequest.ExecuteAsync();
+
+                                var attachmentData = attachmentResponse.Data.Replace("-", "+").Replace("_", "/");
+                                var attachmentDecodedData = Convert.FromBase64String(attachmentData);
+
+                                text = text.Replace($"cid:{cid}", await TestMinio(attachmentDecodedData, part.Filename));
+                            }
+                        }
+                    }
 
                     var attachmentList = new List<MessageAttachment>();
                     foreach (var attachment in attachments ?? [])
@@ -291,7 +334,7 @@ public class GmailClient : IGmailClient
                             From = from.Contains("<") ? from.Split("<")[1].TrimEnd('>') : from,
                             To = to.Contains("<") ? to.Split("<")[1].TrimEnd('>') : to,
                             Content = text.Trim(),
-                            ThreadId = threadId,
+                            ThreadId = threadId ?? string.Empty,
                             FromName = from.Contains("<") ? from.Split("<")[0].Trim() : from,
                             ToName = to.Contains("<") ? to.Split("<")[0].Trim() : to,
                             Snippet = snippet,

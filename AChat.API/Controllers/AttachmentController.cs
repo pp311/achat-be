@@ -28,42 +28,6 @@ public class AttachmentController : ControllerBase
         _minioSettings = minioSettings.Value;
     }
 
-    [HttpPost("avatar")]
-    public async Task<IActionResult> UploadAvatarImage([FromForm] IFormFile? file)
-    {
-        if (file == null || file.Length == 0)
-            return BadRequest("File is empty");
-
-        ValidateImage(file);
-
-        var url = await _imageUploader.UploadAvatarImageAsync(file.FileName, file.OpenReadStream());
-        return Ok(url);
-    }
-
-    [HttpPost("property")]
-    public async Task<IActionResult> UploadPropertyImage([FromForm] IFormFile? file)
-    {
-        if (file == null || file.Length == 0)
-            return BadRequest("File is empty");
-
-        ValidateImage(file);
-
-        var url = await _imageUploader.UploadAvatarImageAsync(file.FileName, file.OpenReadStream());
-        return Ok(url);
-    }
-
-    [HttpPost("media")]
-    public async Task<IActionResult> UploadMediaFile([FromForm] IFormFile? file)
-    {
-        if (file == null || file.Length == 0)
-            return BadRequest("File is empty");
-
-        ValidateMedia(file);
-
-        var url = await _imageUploader.UploadAvatarImageAsync(file.FileName, file.OpenReadStream());
-        return Ok(url);
-    }
-    
     [HttpPost("upload-facebook-attachment")]
     public async Task<IActionResult> TestMinio([FromForm] IFormFile file)
     {

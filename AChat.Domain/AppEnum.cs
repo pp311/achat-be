@@ -11,27 +11,27 @@ public static class EnumExtensions
     public static string ToValue(this Enum value)
     {
         var fieldInfo = value.GetType().GetField(value.ToString());
-        
-        if (fieldInfo?.GetCustomAttributes(typeof(StringValueAttribute), false) is not StringValueAttribute[] attributes) 
+
+        if (fieldInfo?.GetCustomAttributes(typeof(StringValueAttribute), false) is not StringValueAttribute[] attributes)
             return value.ToString();
-        
+
         return attributes.Length > 0 ? attributes[0].StringValue : value.ToString();
     }
-    
+
     public static T ToEnum<T>(this string value) where T : Enum
     {
         var type = typeof(T);
         if (!type.IsEnum) throw new InvalidOperationException();
-        
+
         foreach (var field in type.GetFields())
         {
-            if (field.GetCustomAttributes(typeof(StringValueAttribute), false) is not StringValueAttribute[] attributes) 
+            if (field.GetCustomAttributes(typeof(StringValueAttribute), false) is not StringValueAttribute[] attributes)
                 continue;
-            
+
             if (attributes.Length > 0 && attributes[0].StringValue == value)
                 return (T)field.GetValue(null)!;
         }
-        
+
         throw new KeyNotFoundException();
     }
 }
@@ -39,8 +39,8 @@ public static class EnumExtensions
 
 public enum AppRole
 {
-    [StringValue("admin")]Admin = 1,
-    [StringValue("user")]User = 2
+    [StringValue("admin")] Admin = 1,
+    [StringValue("user")] User = 2
 }
 
 public enum SourceType
@@ -59,8 +59,14 @@ public enum Gender
 
 public enum FacebookAttachmentType
 {
-    [StringValue("image")]Image = 1,
-    [StringValue("video")]Video = 2,
-    [StringValue("audio")]Audio = 3,
-    [StringValue("file")]File = 4
+    [StringValue("image")] Image = 1,
+    [StringValue("video")] Video = 2,
+    [StringValue("audio")] Audio = 3,
+    [StringValue("file")] File = 4
+}
+
+public enum TemplateType
+{
+    Email = 1,
+    Message = 2
 }
