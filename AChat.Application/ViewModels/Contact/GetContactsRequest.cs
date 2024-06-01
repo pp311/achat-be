@@ -10,6 +10,7 @@ public class GetContactsRequest : PagingRequest
     public ContactSortByOption SortBy { get; set; } = ContactSortByOption.Id;
     public List<int> TagIds { get; set; } = new();
     public SourceType? Type { get; set; }
+    public List<int> SourceIds { get; set; } = new();
     public bool IsHidden { get; set; }
 }
 

@@ -31,6 +31,20 @@ public class ContactController : ControllerBase
         return Ok(result);
     }
     
+    [HttpPost("{id:int}/ref/{refId:int}")]
+    public async Task<IActionResult> CreateContactRef([FromRoute] int id, [FromRoute] int refId)
+    {
+        await _contactService.SetRefContactAsync(id, refId);
+        return NoContent();
+    }
+    
+    [HttpPost]
+    public async Task<IActionResult> CreateContact([FromBody] CreateContactRequest request, CancellationToken ct)
+    {
+        await _contactService.CreateContactAsync(request, ct);
+        return NoContent();
+    }
+    
     [HttpPost("hide")]
     public async Task<IActionResult> HideContacts([FromBody] ChangeContactsVisibilityRequest request, CancellationToken ct)
     {

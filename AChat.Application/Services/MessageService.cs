@@ -181,6 +181,7 @@ public class MessageService(
 
                 var isEcho = gmailDto.From == source.Email;
                 var contactMail = isEcho ? gmailDto.To : gmailDto.From;
+                var contactName = isEcho ? gmailDto.ToName : gmailDto.FromName;
                 var contact = await contactRepository.GetAsync(_ => _.SourceId == source.Id && _.Email == contactMail);
 
                 // ignore reply messages if source is connected after that thread created
@@ -198,7 +199,7 @@ public class MessageService(
                         SourceId = source.Id,
                         Email = contactMail,
                         UserId = source.UserId,
-                        Name = isEcho ? gmailDto.ToName : gmailDto.FromName
+                        Name = contactName?.Replace("\"", "") 
                     };
 
                     contactRepository.Add(contact);
@@ -224,6 +225,9 @@ public class MessageService(
                     }).ToList()
                 };
 
+                if (contact.Name != contactName)
+                    contact.Name = contactName;
+                
                 contact.Messages.Add(newMessage);
 
                 var response = Mapper.Map<MessageResponse>(newMessage);
@@ -274,13 +278,21 @@ public class MessageService(
             var replyMessage = await messageRepository.GetAsync(_ => _.Id == request.ReplyMessageId)
                                ?? throw new NotFoundException(nameof(Message), request.ReplyMessageId.ToString());
 
-            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, request.Message, replyMessage.MId, replyMessage.ThreadId);
+            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, 
+                request.Message, replyMessage.MId, replyMessage.ThreadId, request.Attachments);
         }
         else
-            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, request.Message);
+            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, 
+                request.Message, null, null, request.Attachments);
 
         sentMessage.UpdatedOn = DateTime.UtcNow;
         sentMessage.CreatedOn = DateTime.UtcNow;
+        sentMessage.Attachments = request.Attachments.Select(_ => new MessageAttachment
+        {
+            Url = _.Url,
+            FileName = _.FileName,
+            Type = _.Type
+        }).ToList();
 
         sentMessage.ContactId = contact.Id;
         var responses = new List<MessageResponse>();
@@ -328,7 +340,7 @@ public class MessageService(
                     Subject = _.First().Subject!,
                     CreatedOn = _.First().CreatedOn!.Value,
                     Snippet = _.First().Content,
-                    IsRead = _.All(m => m.IsRead)
+                    IsRead = _.All(t => t.IsRead)
                 })
                 .ToPaginatedListAsync(request.PageNumber, request.PageSize);
 

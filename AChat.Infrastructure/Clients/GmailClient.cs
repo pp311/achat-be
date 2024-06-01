@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using System.Text;
 using System.Text.RegularExpressions;
 using AChat.Application.Common.Configurations;
@@ -63,74 +64,6 @@ public class GmailClient : IGmailClient
         return new UserCredential(GetFlow(), string.Empty, token);
     }
 
-    public async Task<List<GmailDto>> GetEmailsAsync(UserCredential credential)
-    {
-        var service = new GmailService(new BaseClientService.Initializer
-        {
-            HttpClientInitializer = credential
-        });
-
-        var result = new List<GmailDto>();
-
-        var request = service.Users.Messages.List("me");
-        var listMessagesResponse = await request.ExecuteAsync();
-
-        foreach (var message in listMessagesResponse.Messages)
-        {
-            var messageRequest = service.Users.Messages.Get("me", message.Id);
-            Message messageResponse = await messageRequest.ExecuteAsync();
-
-            var payload = messageResponse.Payload;
-            var threadId = messageResponse.ThreadId;
-
-            var headers = payload.Headers;
-
-            var subject = headers?.FirstOrDefault(_ => _.Name == "Subject")?.Value;
-            var from = headers?.FirstOrDefault(_ => _.Name == "From")?.Value;
-            var to = headers?.FirstOrDefault(_ => _.Name == "To")?.Value;
-
-            var parts = payload.Parts;
-
-            // get email content
-            var body = parts?.FirstOrDefault()?.Body?.Data;
-            if (body != null)
-            {
-                var data = body.Replace("-", "+").Replace("_", "/");
-                var decodedData = Convert.FromBase64String(data);
-                var text = Encoding.UTF8.GetString(decodedData);
-
-                if (subject != null && from != null && to != null)
-                {
-                    var email = new GmailDto
-                    {
-                        Subject = subject,
-                        From = from,
-                        To = to,
-                        Content = text,
-                        ThreadId = threadId,
-                    };
-
-                    result.Add(email);
-                }
-
-            }
-
-
-            // var attachments = parts?.Where(_ => !string.IsNullOrEmpty(_.Filename)).ToList();
-            // foreach (var attachment in attachments ?? [])
-            // {
-            //     var attachmentId = attachment.Body.AttachmentId;
-            //     var attachmentRequest = service.Users.Messages.Attachments.Get("me", message.Id, attachmentId);
-            //     var attachmentResponse = await attachmentRequest.ExecuteAsync();
-            //     
-            //     var attachmentData = attachmentResponse.Data;
-            //     var attachmentDecodedData = Convert.FromBase64String(attachmentData);
-            // }
-        }
-
-        return result;
-    }
-
     public async Task<Userinfo?> GetInfoAsync(UserCredential credential)
     {
         var oauthService = new Oauth2Service(
@@ -140,6 +73,17 @@ public class GmailClient : IGmailClient
         });
 
         return await oauthService.Userinfo.Get().ExecuteAsync();
+    }
+    
+    public async Task<Profile> GetProfileAsync(UserCredential credential, string email)
+    {
+        var service = new GmailService(new BaseClientService.Initializer
+        {
+            HttpClientInitializer = credential
+        });
+
+        var request = service.Users.GetProfile(email);
+        return await request.ExecuteAsync();
     }
 
     public async Task<ulong> GetHistoryIdAsync(UserCredential credential)
@@ -351,7 +295,8 @@ public class GmailClient : IGmailClient
         return result;
     }
 
-    public async Task<Domain.Entities.Message> SendGmailAsync(UserCredential credential, string from, string to, string subject, string body, string? replyMId = default, string? threadId = default)
+    public async Task<Domain.Entities.Message> SendGmailAsync(UserCredential credential, 
+        string from, string to, string subject, string body, string? replyMId = default, string? threadId = default, List<MessageAttachmentResponse>? attachments = null)
     {
         var service = new GmailService(new BaseClientService.Initializer
         {
@@ -361,10 +306,22 @@ public class GmailClient : IGmailClient
         mimeMessage.From.Add(MailboxAddress.Parse(from));
         mimeMessage.To.Add(MailboxAddress.Parse(to));
         mimeMessage.Subject = subject;
-        mimeMessage.Body = new TextPart("html")
+
+        var bodyBuilder = new BodyBuilder
         {
-            Text = body
+            HtmlBody = body
         };
+        
+        // Todo: parallel this
+        foreach (var attachment in attachments ?? [])
+        {
+            var memoryStream = await GetBase64FromS3Async(attachment.FileName!);
+            var byteContent = memoryStream.ToArray();
+            bodyBuilder.Attachments.Add(attachment.FileName, byteContent);
+        }
+        
+
+        mimeMessage.Body = bodyBuilder.ToMessageBody();
 
         if (threadId != default)
         {
@@ -452,7 +409,7 @@ public class GmailClient : IGmailClient
         }
     }
 
-    public async Task<string> TestMinio(byte[] data, string fileName)
+    private async Task<string> TestMinio(byte[] data, string fileName)
     {
         if (!await _minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket(_minioSettings.BucketName)))
             throw new AppException("Bucket does not exist");
@@ -469,6 +426,23 @@ public class GmailClient : IGmailClient
         await _minioClient.PutObjectAsync(args);
 
         return $"{_minioSettings.BaseUrl}/{fileName}";
+    }
+
+    private async Task<MemoryStream> GetBase64FromS3Async(string fileName)
+    {
+        if (!await _minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket(_minioSettings.BucketName)))
+            throw new AppException("Bucket does not exist");
+        
+        var newMemoryStream = new MemoryStream();
+        
+        var args = new GetObjectArgs()
+            .WithBucket(_minioSettings.BucketName)
+            .WithObject($"{fileName}")
+            .WithCallbackStream(str => str.CopyTo(newMemoryStream));
+        
+        await _minioClient.GetObjectAsync(args);
+        
+        return newMemoryStream; 
     }
 
     private GoogleAuthorizationCodeFlow GetFlow()

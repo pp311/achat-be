@@ -7,4 +7,5 @@ public class SendGmailMessageRequest
     public string Subject { get; set; } = string.Empty;
     public int ReplyMessageId { get; set; }
 
+    public List<MessageAttachmentResponse> Attachments { get; set; } = new();
 }
