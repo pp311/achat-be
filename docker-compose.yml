@@ -19,7 +19,7 @@
     pull_policy: build
     restart: unless-stopped
   achat.web:
-    image: pp311/achat
+    image: pp311/achat:latest
     ports:
       - "5173:5173"
     env_file:
