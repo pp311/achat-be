@@ -13,17 +13,12 @@
     <ItemGroup>
       <PackageReference Include="AutoMapper" Version="13.0.1" />
       <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.9.0" />
+      <PackageReference Include="Google.Apis.Gmail.v1" Version="1.68.0.3427" />
       <PackageReference Include="Google.Apis.Oauth2.v2" Version="1.68.0.1869" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.3" />
       <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="7.5.0" />
       <PackageReference Include="Quartz" Version="3.8.1" />
       <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.5.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Reference Include="Google.Apis.Gmail.v1">
-        <HintPath>..\..\..\.nuget\packages\google.apis.gmail.v1\1.68.0.3399\lib\net6.0\Google.Apis.Gmail.v1.dll</HintPath>
-      </Reference>
     </ItemGroup>
 
 </Project>
