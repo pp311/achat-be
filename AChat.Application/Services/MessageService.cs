@@ -199,7 +199,7 @@ public class MessageService(
                         SourceId = source.Id,
                         Email = contactMail,
                         UserId = source.UserId,
-                        Name = contactName?.Replace("\"", "") 
+                        Name = contactName?.Replace("\"", "")
                     };
 
                     contactRepository.Add(contact);
@@ -227,7 +227,7 @@ public class MessageService(
 
                 if (contact.Name != contactName)
                     contact.Name = contactName;
-                
+
                 contact.Messages.Add(newMessage);
 
                 var response = Mapper.Map<MessageResponse>(newMessage);
@@ -278,11 +278,11 @@ public class MessageService(
             var replyMessage = await messageRepository.GetAsync(_ => _.Id == request.ReplyMessageId)
                                ?? throw new NotFoundException(nameof(Message), request.ReplyMessageId.ToString());
 
-            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, 
+            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject,
                 request.Message, replyMessage.MId, replyMessage.ThreadId, request.Attachments);
         }
         else
-            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject, 
+            sentMessage = await gmailClient.SendGmailAsync(credential, from, contact.Email!, request.Subject,
                 request.Message, null, null, request.Attachments);
 
         sentMessage.UpdatedOn = DateTime.UtcNow;
@@ -360,6 +360,14 @@ public class MessageService(
 
     public async Task MarkReadAsync(int contactId, int messageId)
     {
+        if (messageId == default)
+        {
+            await messageRepository
+                .GetQuery(_ => _.ContactId == contactId && _.IsRead == false)
+                .ExecuteUpdateAsync(_ => _.SetProperty(p => p.IsRead, true));
+
+            return;
+        }
         var message = await messageRepository.GetAsync(_ => _.Id == messageId && _.ContactId == contactId)
                       ?? throw new NotFoundException(nameof(Message), messageId.ToString());
 
