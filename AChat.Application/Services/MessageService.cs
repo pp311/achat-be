@@ -358,21 +358,19 @@ public class MessageService(
             .ProjectToListAsync<MessageResponse>(Mapper.ConfigurationProvider);
     }
 
-    public async Task MarkReadAsync(int contactId, int messageId)
+    public async Task MarkReadAsync(int contactId, int messageId, string? threadId = null)
     {
         if (messageId == default)
         {
             await messageRepository
-                .GetQuery(_ => _.ContactId == contactId && _.IsRead == false)
+                .GetQuery(_ => _.ContactId == contactId && _.ThreadId == threadId && _.IsRead == false)
                 .ExecuteUpdateAsync(_ => _.SetProperty(p => p.IsRead, true));
 
             return;
         }
-        var message = await messageRepository.GetAsync(_ => _.Id == messageId && _.ContactId == contactId)
-                      ?? throw new NotFoundException(nameof(Message), messageId.ToString());
 
         await messageRepository
-            .GetQuery(_ => _.ContactId == contactId && _.Id <= messageId && _.ThreadId == message.ThreadId)
+            .GetQuery(_ => _.ContactId == contactId && _.Id <= messageId && _.ThreadId == threadId)
             .ExecuteUpdateAsync(_ => _.SetProperty(p => p.IsRead, true));
     }
 
