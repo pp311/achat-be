@@ -77,7 +77,7 @@ public class MessageService(
             {
                 MId = message.Message!.Mid,
                 IsEcho = message.Message!.IsEcho,
-                IsRead = false,
+                IsRead = message.Message!.IsEcho ? true : false,
                 ContactId = contact.Id,
                 Attachments = message.Message!.Attachments.Select(_ => new MessageAttachment
                 {

@@ -74,7 +74,7 @@ public class GmailClient : IGmailClient
 
         return await oauthService.Userinfo.Get().ExecuteAsync();
     }
-    
+
     public async Task<Profile> GetProfileAsync(UserCredential credential, string email)
     {
         var service = new GmailService(new BaseClientService.Initializer
@@ -170,11 +170,11 @@ public class GmailClient : IGmailClient
                 var replyTo = headers?.FirstOrDefault(_ => _.Name == "In-Reply-To")?.Value;
                 var snippet = messageResponse?.Snippet ?? string.Empty;
                 var attachments = payload.Parts?
-                    .Where(_ => !string.IsNullOrEmpty(_.Filename) 
+                    .Where(_ => !string.IsNullOrEmpty(_.Filename)
                                 && _.Headers.FirstOrDefault(_ => _.Name == "Content-Disposition")?.Value.Contains("inline") != true)
                     .ToList();
                 var inlineImages = payload.Parts?
-                    .Where(_ => !string.IsNullOrEmpty(_.Filename) 
+                    .Where(_ => !string.IsNullOrEmpty(_.Filename)
                                 && _.Headers.FirstOrDefault(_ => _.Name == "Content-Disposition")?.Value.Contains("inline") == true)
                     .ToList();
 
@@ -187,11 +187,11 @@ public class GmailClient : IGmailClient
                 if (parts?.Any(_ => _.MimeType == "multipart/related") == true)
                 {
                     parts = parts?.Where(_ => _.MimeType == "multipart/related").FirstOrDefault()?.Parts;
-                    
-                    inlineImages = parts?.Where(_ => !string.IsNullOrEmpty(_.Filename) 
+
+                    inlineImages = parts?.Where(_ => !string.IsNullOrEmpty(_.Filename)
                                                     && _.Headers.FirstOrDefault(_ => _.Name == "Content-Disposition")?.Value.Contains("inline") == true)
                                         .ToList();
-                    
+
                     var contentParts = parts?.Where(_ => _.MimeType == "multipart/alternative").FirstOrDefault()?.Parts;
 
                     body = contentParts?.FirstOrDefault()?.Body?.Data;
@@ -209,7 +209,7 @@ public class GmailClient : IGmailClient
                     body = parts?.FirstOrDefault()?.Body?.Data;
                     htmlBody = parts?.Where(_ => _.MimeType == "text/html").FirstOrDefault()?.Body?.Data;
                 }
-                
+
                 body = !string.IsNullOrEmpty(htmlBody) ? htmlBody : body;
                 if (body != null || attachments?.Any() == true)
                 {
@@ -222,7 +222,7 @@ public class GmailClient : IGmailClient
                     // For Outlook: "___________________________ ..."
                     text = Regex.Replace(text, @"\s*\bOn\b.*wrote:.[\s\S]*$", string.Empty);
                     text = Regex.Replace(text, @"_{20,}.*", string.Empty);
-                    
+
                     // replace inline images
                     foreach (var part in inlineImages ?? [])
                     {
@@ -295,7 +295,7 @@ public class GmailClient : IGmailClient
         return result;
     }
 
-    public async Task<Domain.Entities.Message> SendGmailAsync(UserCredential credential, 
+    public async Task<Domain.Entities.Message> SendGmailAsync(UserCredential credential,
         string from, string to, string subject, string body, string? replyMId = default, string? threadId = default, List<MessageAttachmentResponse>? attachments = null)
     {
         var service = new GmailService(new BaseClientService.Initializer
@@ -311,7 +311,7 @@ public class GmailClient : IGmailClient
         {
             HtmlBody = body
         };
-        
+
         // Todo: parallel this
         foreach (var attachment in attachments ?? [])
         {
@@ -319,7 +319,7 @@ public class GmailClient : IGmailClient
             var byteContent = memoryStream.ToArray();
             bodyBuilder.Attachments.Add(attachment.FileName, byteContent);
         }
-        
+
 
         mimeMessage.Body = bodyBuilder.ToMessageBody();
 
@@ -362,7 +362,7 @@ public class GmailClient : IGmailClient
             IsEcho = true,
             ThreadId = sentMessage.ThreadId,
             Attachments = new List<MessageAttachment>(),
-            IsRead = false
+            IsRead = true
         };
     }
 
@@ -432,17 +432,17 @@ public class GmailClient : IGmailClient
     {
         if (!await _minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket(_minioSettings.BucketName)))
             throw new AppException("Bucket does not exist");
-        
+
         var newMemoryStream = new MemoryStream();
-        
+
         var args = new GetObjectArgs()
             .WithBucket(_minioSettings.BucketName)
             .WithObject($"{fileName}")
             .WithCallbackStream(str => str.CopyTo(newMemoryStream));
-        
+
         await _minioClient.GetObjectAsync(args);
-        
-        return newMemoryStream; 
+
+        return newMemoryStream;
     }
 
     private GoogleAuthorizationCodeFlow GetFlow()
