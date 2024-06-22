@@ -28,6 +28,7 @@ public class ContactService(
             .WhereIf(request.SourceIds.Any(), _ => request.SourceIds.Contains(_.SourceId))
             .WhereIf(request.Type.HasValue, _ => _.Source.Type == request.Type)
             .OrderBy(GetOrderByField(request.SortBy), request.IsDescending)
+            .AsSplitQuery()
             .ProjectTo<ContactResponse>(Mapper.ConfigurationProvider)
             .ToPaginatedListAsync(request.PageNumber, request.PageSize, ct);
     }
