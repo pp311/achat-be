@@ -333,6 +333,7 @@ public class MessageService(
             messageRepository.GetQuery(_ => _.ContactId == contactId)
                 .OrderByDescending(_ => _.CreatedOn)
                 .GroupBy(_ => _.ThreadId)
+                .OrderByDescending(_ => _.First().CreatedOn)
                 .AsQueryable()
                 .Select(_ => new GetGmailThreadResponse
                 {
