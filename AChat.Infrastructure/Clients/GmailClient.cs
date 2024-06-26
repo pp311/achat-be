@@ -270,23 +270,34 @@ public class GmailClient : IGmailClient
 
                     if (subject != null && from != null && to != null)
                     {
-                        var email = new GmailDto
-                        {
-                            Id = messageId ?? string.Empty,
-                            Subject = subject,
-                            // get email in the format "Name <email>"
-                            From = from.Contains("<") ? from.Split("<")[1].TrimEnd('>') : from,
-                            To = to.Contains("<") ? to.Split("<")[1].TrimEnd('>') : to,
-                            Content = text.Trim(),
-                            ThreadId = threadId ?? string.Empty,
-                            FromName = from.Contains("<") ? from.Split("<")[0].Trim() : from,
-                            ToName = to.Contains("<") ? to.Split("<")[0].Trim() : to,
-                            Snippet = snippet,
-                            ReplyTo = replyTo,
-                            Attachments = attachmentList
-                        };
+                        var toAddresses = to.Split(",").ToList();
+                        var ccAddresses = headers?.FirstOrDefault(_ => _.Name == "Cc")?.Value?.Split(",").ToList() ?? new List<string>();
+                        var bccAddresses = headers?.FirstOrDefault(_ => _.Name == "Bcc")?.Value?.Split(",").ToList() ?? new List<string>();
+                        
+                        var addresses = toAddresses.Concat(ccAddresses).Concat(bccAddresses).ToList();
 
-                        result.Add(email);
+                        addresses = addresses.Select(a => a.Trim()).Distinct().ToList();
+                        
+                        foreach (var address in addresses)
+                        {
+                            var email = new GmailDto
+                            {
+                                Id = messageId ?? string.Empty,
+                                Subject = subject,
+                                // get email in the format "Name <email>"
+                                From = from.Contains("<") ? from.Split("<")[1].TrimEnd('>') : from,
+                                To = address.Contains("<") ? address.Split("<")[1].TrimEnd('>') : address,
+                                Content = text.Trim(),
+                                ThreadId = threadId ?? string.Empty,
+                                FromName = from.Contains("<") ? from.Split("<")[0].Trim() : from,
+                                ToName = to.Contains("<") ? to.Split("<")[0].Trim() : to,
+                                Snippet = snippet,
+                                ReplyTo = replyTo,
+                                Attachments = attachmentList
+                            };
+
+                            result.Add(email);
+                        }
                     }
                 }
             }

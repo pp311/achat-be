@@ -176,8 +176,8 @@ public class MessageService(
             foreach (var gmailDto in messages)
             {
                 // prevent duplicate message
-                if (await messageRepository.AnyAsync(_ => _.MId == gmailDto.Id && _.Contact.SourceId == source.Id))
-                    continue;
+                // if (await messageRepository.AnyAsync(_ => _.MId == gmailDto.Id && _.Contact.SourceId == source.Id && _.Contact.Email == gmailDto.To))
+                //     continue;
 
                 var isEcho = gmailDto.From == source.Email;
                 var contactMail = isEcho ? gmailDto.To : gmailDto.From;
@@ -249,6 +249,7 @@ public class MessageService(
                 MId = _.Key,
                 Id = _.First().Id
             })
+            .AsSplitQuery()
             .ToListAsync();
 
         foreach (var duplicateMessage in duplicateMessages)
@@ -334,13 +335,13 @@ public class MessageService(
                 .OrderByDescending(_ => _.CreatedOn)
                 .GroupBy(_ => _.ThreadId)
                 .OrderByDescending(_ => _.First().CreatedOn)
-                .AsQueryable()
+                // .AsQueryable()
                 .Select(_ => new GetGmailThreadResponse
                 {
                     Id = _.First().ThreadId!,
                     Subject = _.First().Subject!,
-                    CreatedOn = _.First().CreatedOn!.Value,
-                    Snippet = _.First().Content,
+                    CreatedOn = _.OrderBy(i => i.CreatedOn).Last().CreatedOn!.Value,
+                    Snippet = _.OrderBy(i => i.CreatedOn).Last().Content,
                     IsRead = _.All(t => t.IsRead)
                 })
                 .ToPaginatedListAsync(request.PageNumber, request.PageSize);
