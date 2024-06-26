@@ -362,14 +362,14 @@ public class GmailClient : IGmailClient
         var request = service.Users.Messages.Send(message, "me");
         var sentMessage = await request.ExecuteAsync();
 
-        var getMessage = await service.Users.Messages.Get("me", sentMessage.Id).ExecuteAsync();
-        var messageId = getMessage.Payload.Headers.FirstOrDefault(_ => _.Name == "Message-ID")?.Value ?? string.Empty;
+        //var getMessage = await service.Users.Messages.Get("me", sentMessage.Id).ExecuteAsync();
+        //var messageId = getMessage.Payload.Headers.FirstOrDefault(_ => _.Name == "Message-ID")?.Value ?? string.Empty;
 
         return new Domain.Entities.Message
         {
             Content = body,
             Subject = subject,
-            MId = messageId,
+            MId = sentMessage.Id,
             IsEcho = true,
             ThreadId = sentMessage.ThreadId,
             Attachments = new List<MessageAttachment>(),
