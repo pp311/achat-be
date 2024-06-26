@@ -273,11 +273,11 @@ public class GmailClient : IGmailClient
                         var toAddresses = to.Split(",").ToList();
                         var ccAddresses = headers?.FirstOrDefault(_ => _.Name == "Cc")?.Value?.Split(",").ToList() ?? new List<string>();
                         var bccAddresses = headers?.FirstOrDefault(_ => _.Name == "Bcc")?.Value?.Split(",").ToList() ?? new List<string>();
-                        
+
                         var addresses = toAddresses.Concat(ccAddresses).Concat(bccAddresses).ToList();
 
                         addresses = addresses.Select(a => a.Trim()).Distinct().ToList();
-                        
+
                         foreach (var address in addresses)
                         {
                             var email = new GmailDto
@@ -290,7 +290,7 @@ public class GmailClient : IGmailClient
                                 Content = text.Trim(),
                                 ThreadId = threadId ?? string.Empty,
                                 FromName = from.Contains("<") ? from.Split("<")[0].Trim() : from,
-                                ToName = to.Contains("<") ? to.Split("<")[0].Trim() : to,
+                                ToName = address.Contains("<") ? address.Split("<")[0].Trim() : address,
                                 Snippet = snippet,
                                 ReplyTo = replyTo,
                                 Attachments = attachmentList
