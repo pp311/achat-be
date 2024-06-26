@@ -242,11 +242,12 @@ public class MessageService(
 
         // get duplicate messages
         var duplicateMessages = await messageRepository.GetQuery(_ => _.Contact.Source.Email == webhookData.EmailAddress)
-            .GroupBy(_ => _.MId)
+            .GroupBy(_ => new { _.MId, _.ContactId })
             .Where(_ => _.Count() > 1)
             .Select(_ => new
             {
-                MId = _.Key,
+                MId = _.Key.MId,
+                ContactId = _.Key.ContactId,
                 Id = _.First().Id
             })
             .AsSplitQuery()
