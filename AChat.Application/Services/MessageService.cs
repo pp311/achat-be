@@ -173,6 +173,8 @@ public class MessageService(
 
             logger.LogInformation("Received {Count} Gmail messages", messages.Count);
 
+            messages.RemoveAll(_ => string.IsNullOrEmpty(_.ThreadId));
+
             foreach (var gmailDto in messages)
             {
                 // prevent duplicate message
